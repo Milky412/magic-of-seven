@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import ChakraProvider from "@/providers/ChakraProvider";
+import BgmController from "@/components/BgmController";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,7 +16,10 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body>
-        <ChakraProvider>{children}</ChakraProvider>
+        <ChakraProvider>
+          {children}
+          <BgmController />
+        </ChakraProvider>
       </body>
     </html>
   );

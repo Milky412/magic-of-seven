@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Box, Button, Heading, Text, VStack } from "@chakra-ui/react";
 import MagicCard from "@/components/MagicCard";
+import { playGameSfx } from "@/components/BgmController";
 import type { Card } from "@/game/types";
 
 const HIDDEN_CARD: Card = { id: "action-hidden", number: 1, magic: "truth" };
@@ -28,6 +29,10 @@ export default function ActionOverlay({
   showContinueButton?: boolean;
   continueLabel?: string;
 }) {
+  useEffect(() => {
+    playGameSfx(hidden ? "mystery" : "magic");
+  }, [action, hidden]);
+
   useEffect(() => {
     if (!autoContinueMs || autoContinueMs <= 0) return;
     const timer = window.setTimeout(onContinue, autoContinueMs);

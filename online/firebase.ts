@@ -1,6 +1,12 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,4 +31,22 @@ export const firebaseApp = isFirebaseConfigured
   : null;
 
 export const auth = firebaseApp ? getAuth(firebaseApp) : null;
-export const db = firebaseApp ? getFirestore(firebaseApp) : null;
+let firestore: Firestore | null = null;
+
+if (firebaseApp) {
+  try {
+    // 直前に受信したpublic/private snapshotをIndexedDBへ保持する。
+    // 再読込・画面復帰時はキャッシュを先に表示し、その後サーバーの最新値へ更新される。
+    firestore = initializeFirestore(firebaseApp, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } catch {
+    // すでにFirestoreが初期化済み、または永続キャッシュを使えない環境では
+    // 通常のメモリキャッシュへ安全にフォールバックする。
+    firestore = getFirestore(firebaseApp);
+  }
+}
+
+export const db = firestore;

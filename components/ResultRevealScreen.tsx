@@ -13,6 +13,7 @@ import {
 } from "@chakra-ui/react";
 
 import MagicCard from "@/components/MagicCard";
+import { playGameSfx } from "@/components/BgmController";
 import { getCardImagePath, MAGIC_NAMES } from "@/game/cards";
 import {
   calculatePlayerScore,
@@ -106,6 +107,11 @@ export default function ResultRevealScreen({
     frame.playerTotal,
     Math.round(1080 * speedMultiplier)
   );
+
+  useEffect(() => {
+    if (isFinal) playGameSfx("success");
+    else if (frame.stage === "revealEffect" || frame.stage === "base") playGameSfx("reveal");
+  }, [frameIndex, frame.stage, isFinal]);
 
   useEffect(() => {
     if (paused || isFinal) return;

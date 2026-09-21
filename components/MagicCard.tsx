@@ -27,6 +27,7 @@ export default function MagicCard({
 
   return (
     <Box
+      data-sfx={onClick ? "card" : undefined}
       onClick={onClick}
       cursor={onClick ? "pointer" : "default"}
       w={width}

@@ -14,6 +14,7 @@ import {
 } from "@chakra-ui/react";
 import GameScreen from "./game/GameScreen";
 import OnlineBattle from "@/components/online/OnlineBattle";
+import HowToPlayTutorial from "@/components/HowToPlayTutorial";
 import { createInitialState, startGame } from "@/game/engine";
 import type { GameState, PlayerSetup, TurnOrderPreference } from "@/game/types";
 
@@ -42,6 +43,7 @@ export default function Home() {
   const [mode, setMode] = useState<GameMode>("cpu");
   const [count, setCount] = useState(2);
   const [onlineOpen, setOnlineOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
   const [cpuLevels, setCpuLevels] = useState([5, 5, 5]);
   const [turnOrderPreference, setTurnOrderPreference] = useState<TurnOrderPreference>("random");
   const [names, setNames] = useState([
@@ -88,6 +90,8 @@ export default function Home() {
   };
 
   return (
+    <>
+    {tutorialOpen && <HowToPlayTutorial onClose={() => setTutorialOpen(false)} />}
     <Box
       minH="100vh"
       position="relative"
@@ -137,6 +141,18 @@ export default function Home() {
             <Text mt="2" color="#AFA594" fontSize={{ base: "sm", md: "md" }}>
               7種類×1〜7の49枚で戦うドラフト式カードゲーム
             </Text>
+            <Button
+              mt="3"
+              size="sm"
+              variant="outline"
+              borderColor="rgba(215,181,109,.46)"
+              color="#E8D7B2"
+              bg="rgba(0,0,0,.28)"
+              _hover={{ borderColor: "#D7B56D", bg: "rgba(215,181,109,.08)" }}
+              onClick={() => setTutorialOpen(true)}
+            >
+              ✦ 遊び方を見る
+            </Button>
           </VStack>
 
           <Box
@@ -351,5 +367,6 @@ export default function Home() {
         </VStack>
       </Container>
     </Box>
+    </>
   );
 }
