@@ -37,13 +37,22 @@ function preloadImage(src: string, priority: "high" | "low" = "low") {
 
 function waitForIdle() {
   return new Promise<void>((resolve) => {
-    if ("requestIdleCallback" in window) {
-      window.requestIdleCallback(() => resolve(), { timeout: 700 });
+    const requestIdleCallback = (window as unknown as {
+      requestIdleCallback?: (
+        callback: () => void,
+        options?: { timeout: number }
+      ) => number;
+    }).requestIdleCallback;
+
+    if (typeof requestIdleCallback === "function") {
+      requestIdleCallback(() => resolve(), { timeout: 700 });
       return;
     }
-    window.setTimeout(resolve, 80);
+
+    setTimeout(resolve, 80);
   });
 }
+
 
 export default function CardImagePreloader() {
   useEffect(() => {
