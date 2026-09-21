@@ -15,17 +15,30 @@ const STORAGE_SE_ENABLED = "seven-magic-se-enabled";
 const STORAGE_SE_VOLUME = "seven-magic-se-volume";
 
 const CHORDS = [
-  [220.0, 261.63, 329.63, 392.0],
-  [196.0, 246.94, 293.66, 369.99],
-  [174.61, 220.0, 261.63, 329.63],
-  [196.0, 246.94, 329.63, 392.0],
+  // A minor を中心にした、少し映画音楽寄りの循環。
+  [220.0, 261.63, 329.63, 392.0],      // Am7
+  [174.61, 220.0, 261.63, 329.63],     // Fmaj7
+  [130.81, 196.0, 246.94, 329.63],     // C/G
+  [164.81, 246.94, 293.66, 392.0],     // Em7/B
+  [146.83, 220.0, 293.66, 349.23],     // Dm7/A
+  [174.61, 261.63, 349.23, 440.0],     // F/A
+  [196.0, 246.94, 293.66, 392.0],      // G
+  [164.81, 207.65, 246.94, 329.63],    // Em
 ];
 
-const MELODY = [
-  659.25, 0, 523.25, 587.33,
-  0, 493.88, 523.25, 0,
-  659.25, 0, 783.99, 698.46,
-  0, 587.33, 523.25, 0,
+const MELODY_A = [
+  659.25, 0, 783.99, 880.0, 783.99, 698.46, 659.25, 0,
+  523.25, 0, 659.25, 698.46, 659.25, 587.33, 523.25, 0,
+];
+
+const MELODY_B = [
+  880.0, 987.77, 1046.5, 0, 987.77, 880.0, 783.99, 0,
+  698.46, 783.99, 880.0, 987.77, 880.0, 783.99, 698.46, 0,
+];
+
+const MELODY_C = [
+  1046.5, 0, 1174.66, 1318.51, 1174.66, 1046.5, 987.77, 0,
+  880.0, 987.77, 1046.5, 1174.66, 1046.5, 987.77, 880.0, 0,
 ];
 
 function tone(
@@ -120,25 +133,68 @@ export default function BgmController() {
 
   const scheduleStep = (ctx: AudioContext, master: GainNode) => {
     const step = stepRef.current++;
+    const phraseStep = step % 64;
     const now = ctx.currentTime + 0.025;
     const chord = CHORDS[Math.floor(step / 8) % CHORDS.length];
 
+    // 64ステップで「導入→上昇→クライマックス→余韻」を作る。
+    const intensity =
+      phraseStep < 16 ? 0.58 :
+      phraseStep < 32 ? 0.82 :
+      phraseStep < 48 ? 1.0 :
+      0.72;
+
+    // ストリングス/パッド風。8ステップごとに和音を大きく広げる。
     if (step % 8 === 0) {
       chord.forEach((freq, i) => {
-        tone(ctx, master, freq / 2, now, 4.1, 0.023 - i * 0.0025, "sine", 0.12);
+        tone(ctx, master, freq / 2, now, 4.55, (0.017 - i * 0.0014) * intensity, "sine", 0.24);
+        tone(ctx, master, freq, now + 0.025, 3.8, (0.0075 - i * 0.0006) * intensity, "triangle", 0.20);
       });
-      tone(ctx, master, chord[0] / 4, now, 2.5, 0.03, "triangle", 0.08);
+      // チェロ/コントラバス風の根音。
+      tone(ctx, master, chord[0] / 4, now, 3.2, 0.029 * intensity, "triangle", 0.08);
+      tone(ctx, master, chord[0] / 8, now + 0.03, 2.3, 0.012 * intensity, "sine", 0.11);
     }
 
-    const melodyFreq = MELODY[step % MELODY.length];
+    // 中盤から低音オスティナートを追加して推進力を出す。
+    if (phraseStep >= 16 && phraseStep < 52 && step % 2 === 0) {
+      const bassPattern = [0, 2, 0, 1] as const;
+      const bass = chord[bassPattern[Math.floor(step / 2) % bassPattern.length]] / 2;
+      tone(ctx, master, bass, now, 0.44, 0.012 * intensity, "triangle", 0.018);
+    }
+
+    // 16分音符風アルペジオ。後半ほど音域を広げる。
+    const arpIndex = step % 8 < 4 ? step % 4 : 3 - (step % 4);
+    const arpOctave = phraseStep >= 32 && phraseStep < 48 ? 4 : 2;
+    const arp = chord[Math.max(0, Math.min(chord.length - 1, arpIndex))] * arpOctave;
+    tone(ctx, master, arp, now + 0.045, 0.34, 0.0065 * intensity, "sine", 0.012);
+
+    // メロディは展開ごとに別モチーフへ。
+    const melody = phraseStep < 24 ? MELODY_A : phraseStep < 48 ? MELODY_B : MELODY_C;
+    const melodyFreq = melody[step % melody.length];
     if (melodyFreq) {
-      tone(ctx, master, melodyFreq, now, 0.82, 0.022, "sine", 0.03);
-      tone(ctx, master, melodyFreq * 2, now + 0.015, 0.38, 0.004, "sine", 0.02);
+      tone(ctx, master, melodyFreq, now + 0.018, 0.92, 0.0175 * intensity, "sine", 0.035);
+      tone(ctx, master, melodyFreq / 2, now + 0.028, 0.78, 0.006 * intensity, "triangle", 0.045);
+      if (phraseStep >= 32 && phraseStep < 48) {
+        tone(ctx, master, melodyFreq * 1.5, now + 0.04, 0.58, 0.0035, "sine", 0.028);
+      }
     }
 
-    if (step % 2 === 0) {
-      const arp = chord[Math.floor(step / 2) % chord.length] * 2;
-      tone(ctx, master, arp, now + 0.06, 0.46, 0.009, "triangle", 0.02);
+    // 映画音楽風の軽い打楽器。ノイズを低めに混ぜ、耳障りにならないようにする。
+    if (phraseStep >= 16 && step % 4 === 0) {
+      noise(ctx, master, now, 0.16, 0.0065 * intensity, 480);
+      tone(ctx, master, 82.41, now, 0.30, 0.012 * intensity, "sine", 0.006);
+    }
+
+    // クライマックスの頭で鐘のようなアクセント。
+    if (phraseStep === 32 || phraseStep === 40) {
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+        tone(ctx, master, f, now + i * 0.045, 1.45, 0.010 - i * 0.0012, "sine", 0.02);
+      });
+    }
+
+    // ループ終盤は音数を減らして次の循環へ自然につなげる。
+    if (phraseStep >= 56 && step % 4 === 0) {
+      tone(ctx, master, chord[0], now, 1.25, 0.008, "sine", 0.08);
     }
   };
 
@@ -187,7 +243,7 @@ export default function BgmController() {
         if (currentCtx && currentGain && currentCtx.state === "running") {
           scheduleStep(currentCtx, currentGain);
         }
-      }, 600);
+      }, 520);
     }
 
     return ctx;
