@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Box, Button, Heading, HStack, SimpleGrid, Text, VStack } from "@chakra-ui/react";
 import { playGameSfx } from "@/components/BgmController";
 import MagicCard from "@/components/MagicCard";
+import CardActionAnimation from "@/components/CardActionAnimation";
 import type { Card, MagicType } from "@/game/types";
 
 const STEPS = [
@@ -193,13 +194,13 @@ type MagicGuideEntry = {
 };
 
 const MAGIC_GUIDE: MagicGuideEntry[] = [
-  { id: "destroy", short: "破壊", name: "破壊の魔法", summary: "相手の場を上から崩す", detail: "相手の場に重ねられたカードを上から破壊します。守護がある場合は守護だけを破壊して止まります。", tip: "高得点や増大がありそうな場を狙うと強力。", visual: "destroy" },
-  { id: "guard", short: "守護", name: "守護の魔法", summary: "破壊を一度止め、最後に+1", detail: "自分の場に伏せて重ねます。破壊を受けると守護自身が壊れて、それより下のカードを守ります。最終得点では+1点です。", tip: "高得点や増大を重ねた大事な場の保険に。", visual: "guard" },
-  { id: "double", short: "増大", name: "増大の魔法", summary: "その場の得点を×2", detail: "自分の場に伏せて重ね、最終集計でその場所の得点を2倍にします。", tip: "6・7点など高いポイントに重ねるほど効果大。", visual: "double" },
-  { id: "betray", short: "裏切り", name: "裏切りの魔法", summary: "その場の得点を×−1", detail: "場に伏せて重ね、最終集計でその場所の得点をマイナスに反転させます。2枚重なると−1×−1で正に戻ります。", tip: "相手への攻撃だけでなく、自分に二重で置くブラフも可能。", visual: "betray" },
-  { id: "moratorium", short: "モラトリアム", name: "モラトリアムの魔法", summary: "捨てて山札から1枚引く", detail: "このカードを墓場へ送り、山札が残っていれば1枚引きます。通常の行動と違い、手札枚数を維持したまま手番を使えます。", tip: "手数を増やせるので、低数字でも非常に価値が高い魔法。", visual: "moratorium" },
-  { id: "revive", short: "復活", name: "復活の魔法", summary: "同じ数字のカードを墓場から回収", detail: "このカードを墓場へ送り、同じ数字のカードを墓場から1枚選んで手札へ戻します。", tip: "モラトリアムなど強い効果を再利用すると手数を伸ばせる。", visual: "revive" },
-  { id: "truth", short: "真実", name: "真実の魔法", summary: "現在の伏せ魔法を公開", detail: "このカードを墓場へ送り、その時点で場に伏せられている魔法を公開します。あとから置かれた伏せ札は再び隠れたままです。", tip: "終盤の読み合いや、危険な伏せ札の確認に有効。", visual: "truth" },
+  { id: "destroy", short: "破壊", name: "破壊の魔法", summary: "相手の場を上から崩す", detail: "相手の場に重ねられたカードを上から破壊します。守護がある場合は守護だけを破壊して止まります。", tip: "高い数字や増大が重なった場を対象にすると、相手の得点計算へ影響します。", visual: "destroy" },
+  { id: "guard", short: "守護", name: "守護の魔法", summary: "破壊を一度止め、最後に+1", detail: "自分の場に伏せて重ねます。破壊を受けると守護自身が壊れて、それより下のカードを守ります。最終得点では+1点です。", tip: "守りたい場に重ねて、破壊を受けたときに下のカードを残します。", visual: "guard" },
+  { id: "double", short: "増大", name: "増大の魔法", summary: "その場の得点を×2", detail: "自分の場に伏せて重ね、最終集計でその場所の得点を2倍にします。", tip: "6・7点など高いポイントに重ねると、最終得点の変化も大きくなります。", visual: "double" },
+  { id: "betray", short: "裏切り", name: "裏切りの魔法", summary: "その場の得点を×−1", detail: "場に伏せて重ね、最終集計でその場所の得点をマイナスに反転させます。2枚重なると−1×−1で正に戻ります。", tip: "相手の場にも自分の場にも置けます。2枚重なると符号が正に戻ります。", visual: "betray" },
+  { id: "moratorium", short: "モラトリアム", name: "モラトリアムの魔法", summary: "捨てて山札から1枚引く", detail: "このカードを墓場へ送り、山札が残っていれば1枚引きます。通常の行動と違い、手札枚数を維持したまま手番を使えます。", tip: "使用後、山札が残っていれば1枚引きます。手札枚数を維持したまま手番を進められます。", visual: "moratorium" },
+  { id: "revive", short: "復活", name: "復活の魔法", summary: "同じ数字のカードを墓場から回収", detail: "このカードを墓場へ送り、同じ数字のカードを墓場から1枚選んで手札へ戻します。", tip: "同じ数字のカードであれば、魔法の種類に関係なく墓場から1枚選んで手札へ戻せます。", visual: "revive" },
+  { id: "truth", short: "真実", name: "真実の魔法", summary: "現在の伏せ魔法を公開", detail: "このカードを墓場へ送り、その時点で場に伏せられている魔法を公開します。あとから置かれた伏せ札は再び隠れたままです。", tip: "使用した時点で伏せられている魔法を公開し、その後に置かれた伏せ札は再び隠れたままです。", visual: "truth" },
 ];
 
 function MagicGuide() {
@@ -254,111 +255,37 @@ function MagicGuide() {
 }
 
 function MagicEffectVisual({ kind }: { kind: MagicGuideEntry["visual"] }) {
-  if (kind === "destroy") {
-    return (
-      <VStack gap="3">
-        <HStack gap={{ base: "2", md: "5" }} align="center">
-          <TutorialCard card={CARD_SAMPLES.destroy2} />
-          <Text fontSize={{ base: "2xl", md: "4xl" }} color="#D7B56D" style={{ animation: "sm-glow 1s ease infinite" }}>✦</Text>
-          <Box style={{ animation: "sm-destroy 1.8s ease-in-out infinite" }}>
-            <TutorialCard card={CARD_SAMPLES.double7} />
-          </Box>
-        </HStack>
-        <Text color="#D7B56D" fontSize="sm">破壊は上から壊していき、守護に当たると止まります</Text>
-      </VStack>
-    );
-  }
-  if (kind === "guard") {
-    return (
-      <Box position="relative" px="6">
-        <VStack gap="2">
-          <Box position="relative">
-            <TutorialCard card={CARD_SAMPLES.guard6} />
-            <Box position="absolute" left="12px" top="-10px"><TutorialBackCard small /></Box>
-            <Box position="absolute" inset="-18px" border="2px solid rgba(104,184,255,.72)" borderRadius="999px" style={{ animation: "sm-shield 1.7s ease-in-out infinite" }} />
-            <Text position="absolute" top="68px" left={{ base: "92px", md: "112px" }} color="#9ED8FF" fontSize={{ base: "xl", md: "2xl" }}>＋1</Text>
-          </Box>
-          <Text color="#D7B56D" fontSize="sm">伏せて守り、最後まで残ればその守護1枚で+1点</Text>
-        </VStack>
-      </Box>
-    );
-  }
-  if (kind === "double") {
-    return (
-      <VStack gap="3">
-        <HStack gap={{ base: "2", md: "5" }} align="center">
-          <TutorialCard card={CARD_SAMPLES.guard6} />
-          <Text fontSize={{ base: "2xl", md: "3xl" }} color="#D7B56D">＋</Text>
-          <TutorialCard card={CARD_SAMPLES.double3} />
-          <Text fontSize={{ base: "2xl", md: "3xl" }} color="#D7B56D">→</Text>
-          <Text fontSize={{ base: "3xl", md: "4xl" }} color="#FFE39A" fontWeight="700" style={{ animation: "sm-pop 1.5s ease-in-out infinite" }}>12 pt</Text>
-        </HStack>
-        <Text color="#D7B56D" fontSize="sm">高い数字に重ねるほど、増大の価値は大きくなります</Text>
-      </VStack>
-    );
-  }
-  if (kind === "betray") {
-    return (
-      <VStack gap="3">
-        <HStack gap="3" align="center">
-          <Box position="relative" w={{ base: "80px", md: "92px" }} h={{ base: "120px", md: "138px" }}>
-            <Box position="absolute" inset="0"><TutorialCard card={CARD_SAMPLES.guard6} /></Box>
-            <Box position="absolute" left="10px" top="-6px"><TutorialBackCard small /></Box>
-            <Box position="absolute" left="20px" top="-14px"><TutorialBackCard small /></Box>
-          </Box>
-          <VStack gap="1" align="start">
-            <Text color="#E6C879" fontSize="sm">1枚目の裏切り → -6点</Text>
-            <Text color="#E6C879" fontSize="sm">2枚目の裏切り → +6点 に戻る</Text>
-            <Text color="#AFA594" fontSize="xs">相手を惑わせる二重裏切りブラフも可能</Text>
-          </VStack>
-        </HStack>
-      </VStack>
-    );
-  }
-  if (kind === "moratorium") {
-    return (
-      <VStack gap="3">
-        <HStack gap={{ base: "2", md: "5" }} align="center">
-          <Box style={{ animation: "sm-discard 1.8s ease-in-out infinite" }}>
-            <TutorialCard card={CARD_SAMPLES.moratorium1} />
-          </Box>
-          <Text color="#D7B56D" fontSize={{ base: "2xl", md: "3xl" }}>→</Text>
-          <Box style={{ animation: "sm-draw 1.8s ease-in-out infinite" }}>
-            <TutorialBackCard />
-          </Box>
-        </HStack>
-        <Text color="#D7B56D" fontSize="sm">カードを1枚使っても、山札から1枚引けるので手札枚数を維持できます</Text>
-      </VStack>
-    );
-  }
-  if (kind === "revive") {
-    return (
-      <VStack gap="2">
-        <Text color="#7E7464" fontSize="xs">GRAVEYARD</Text>
-        <HStack gap={{ base: "2", md: "5" }} align="center">
-          <TutorialCard card={CARD_SAMPLES.revive3} />
-          <Text color="#D7B56D" fontSize={{ base: "2xl", md: "3xl" }}>→</Text>
-          <Box style={{ animation: "sm-revive 1.8s ease-in-out infinite" }}>
-            <TutorialCard card={CARD_SAMPLES.moratorium3} />
-          </Box>
-        </HStack>
-        <Text color="#D7B56D" fontSize="sm">同じ数字なら魔法の種類を問わず墓場から手札へ戻せます</Text>
-      </VStack>
-    );
-  }
+  const targetCard = CARD_SAMPLES.guard6;
+  const sourceMap: Record<MagicGuideEntry["visual"], Card> = {
+    destroy: CARD_SAMPLES.destroy2,
+    guard: CARD_SAMPLES.guard2,
+    double: CARD_SAMPLES.double3,
+    betray: CARD_SAMPLES.betray4,
+    moratorium: CARD_SAMPLES.moratorium1,
+    revive: CARD_SAMPLES.revive3,
+    truth: CARD_SAMPLES.truth2,
+  };
+
+  const actionKind = kind === "guard" || kind === "double" || kind === "betray" ? "stack" : kind;
+  const actionTarget = kind === "moratorium" ? null : kind === "revive" ? CARD_SAMPLES.moratorium3 : targetCard;
+
   return (
-    <VStack gap="3">
-      <HStack gap={{ base: "2", md: "5" }} align="center">
-        <TutorialCard card={CARD_SAMPLES.truth2} />
-        <Text fontSize={{ base: "2xl", md: "3xl" }} color="#D7B56D">→</Text>
-        <Box style={{ perspective: "800px" }}>
-          <Box position="relative" w={{ base: "80px", md: "92px" }} h={{ base: "120px", md: "138px" }} transformStyle="preserve-3d" style={{ animation: "sm-flip 2s ease-in-out infinite" }}>
-            <Box position="absolute" inset="0" backfaceVisibility="hidden"><TutorialBackCard /></Box>
-            <Box position="absolute" inset="0" transform="rotateY(180deg)" backfaceVisibility="hidden"><TutorialCard card={CARD_SAMPLES.betray4} /></Box>
-          </Box>
-        </Box>
-      </HStack>
-      <Text color="#D7B56D" fontSize="sm">その時点で伏せられているカードだけが公開されます</Text>
+    <VStack gap="3" w="full" px={{ base: "2", md: "4" }}>
+      <CardActionAnimation
+        card={sourceMap[kind]}
+        hidden={false}
+        actionKind={actionKind}
+        targetCard={actionTarget}
+      />
+      <Text color="#D7B56D" fontSize="sm" textAlign="center" maxW="680px">
+        {kind === "destroy" && "破壊は対象の場へ衝撃が入り、上に重なったカードから順に処理されます。"}
+        {kind === "guard" && "守護は伏せて重ね、破壊を受けると守護自身が壊れて下のカードを守ります。"}
+        {kind === "double" && "増大は伏せて重ね、最終集計でその場所の得点を2倍にします。"}
+        {kind === "betray" && "裏切りは伏せて重ね、最終集計でその場所の得点の符号を反転させます。"}
+        {kind === "moratorium" && "モラトリアムは使用カードが光に包まれて消え、その後に山札から1枚引きます。"}
+        {kind === "revive" && "復活は同じ数字のカードを墓場から選び、手札へ戻します。"}
+        {kind === "truth" && "真実は使用した時点で伏せられている魔法を公開します。"}
+      </Text>
     </VStack>
   );
 }
