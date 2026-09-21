@@ -1,9 +1,14 @@
 "use client";
 
-import { Box, HStack, Text, VStack } from "@chakra-ui/react";
+import { Box, HStack, VStack } from "@chakra-ui/react";
 import MagicCard from "@/components/MagicCard";
-import { MAGIC_NAMES } from "@/game/cards";
 import type { FieldStack } from "@/game/types";
+
+const HIDDEN_PLACEHOLDER = {
+  id: "field-hidden-placeholder",
+  number: 1,
+  magic: "truth" as const,
+};
 
 export default function FieldStackView({
   stack,
@@ -51,37 +56,26 @@ export default function FieldStackView({
           <MagicCard card={stack.baseCard} size="small" />
         </Box>
 
-        <Text fontSize="12px" color="#A79C8A" textAlign="center" letterSpacing="0.05em">
-          POINTS HIDDEN
-        </Text>
-
         {stack.effects.length > 0 && (
-          <VStack align="stretch" gap="1">
+          <HStack gap="1" wrap="wrap" justify="center">
             {stack.effects.map((effect, i) => (
-              <HStack
+              <Box
                 key={`${effect.card.id}-${i}`}
-                justify="space-between"
                 cursor={!selectable && effect.isFaceUp && onPreviewCard ? "zoom-in" : selectable ? "pointer" : "default"}
                 onClick={(e) => {
                   if (selectable || !effect.isFaceUp || !onPreviewCard) return;
                   e.stopPropagation();
                   onPreviewCard(effect.card);
                 }}
-                bg="rgba(0,0,0,.40)"
-                border="1px solid rgba(215,181,109,.14)"
-                px="2"
-                py="1"
-                borderRadius="4px"
               >
-                <Text fontSize="md" color={effect.isFaceUp ? "#EAD9B7" : "#918673"}>
-                  {effect.isFaceUp ? MAGIC_NAMES[effect.card.magic] : "？？？"}
-                </Text>
-                <Text fontSize="md" color={effect.isFaceUp ? "#EAD9B7" : "#918673"}>
-                  {effect.isFaceUp ? effect.card.number : "裏"}
-                </Text>
-              </HStack>
+                <MagicCard
+                  card={effect.isFaceUp ? effect.card : { ...HIDDEN_PLACEHOLDER, id: effect.card.id }}
+                  hidden={!effect.isFaceUp}
+                  size="small"
+                />
+              </Box>
             ))}
-          </VStack>
+          </HStack>
         )}
       </VStack>
     </Box>

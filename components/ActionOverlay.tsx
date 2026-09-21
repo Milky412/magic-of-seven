@@ -2,9 +2,9 @@
 
 import { useEffect } from "react";
 import { Box, Button, Heading, Text, VStack } from "@chakra-ui/react";
-import MagicCard from "@/components/MagicCard";
+import CardActionAnimation from "@/components/CardActionAnimation";
 import { playGameSfx } from "@/components/BgmController";
-import type { Card } from "@/game/types";
+import type { Card, LastActionKind } from "@/game/types";
 
 const HIDDEN_CARD: Card = { id: "action-hidden", number: 1, magic: "truth" };
 
@@ -18,6 +18,8 @@ export default function ActionOverlay({
   autoContinueMs,
   showContinueButton = true,
   continueLabel = "次へ",
+  actionKind,
+  targetCard = null,
 }: {
   actorName: string;
   action: string;
@@ -28,10 +30,16 @@ export default function ActionOverlay({
   autoContinueMs?: number;
   showContinueButton?: boolean;
   continueLabel?: string;
+  actionKind?: LastActionKind;
+  targetCard?: Card | null;
 }) {
   useEffect(() => {
+    if (actionKind === "summon" || actionKind === "draft") {
+      playGameSfx("card");
+      return;
+    }
     playGameSfx(hidden ? "mystery" : "magic");
-  }, [action, hidden]);
+  }, [action, hidden, actionKind]);
 
   useEffect(() => {
     if (!autoContinueMs || autoContinueMs <= 0) return;
@@ -44,73 +52,93 @@ export default function ActionOverlay({
       position="fixed"
       inset="0"
       zIndex="1000"
-      bg="rgba(0, 0, 0, 0.78)"
+      bg="rgba(0, 0, 0, 0.80)"
       display="flex"
       alignItems="center"
       justifyContent="center"
-      px="4"
-      py="6"
+      px={{ base: "2", md: "4" }}
+      py={{ base: "2", md: "4" }}
       backdropFilter="blur(4px)"
+      overflow="hidden"
     >
       <Box
-        w={{ base: "100%", md: "560px" }}
-        maxW="560px"
-        maxH="90vh"
-        overflowY="auto"
+        w={{ base: "100%", md: "720px" }}
+        maxW="720px"
+        maxH="calc(100dvh - 16px)"
         bg="linear-gradient(180deg, rgba(23,19,13,.99), rgba(6,7,9,.99))"
         border="1px solid rgba(215,181,109,.58)"
         borderRadius="10px"
         boxShadow="2xl"
-        p={{ base: "6", md: "8" }}
+        display="flex"
+        flexDirection="column"
+        overflow="hidden"
       >
-        <VStack gap="6">
-          <VStack gap="1">
-            <Text
-              fontSize="md"
-              fontWeight="bold"
-              color="#D7B56D"
-              letterSpacing="0.22em"
+        <Box
+          flex="1"
+          minH="0"
+          overflowY="auto"
+          overscrollBehavior="contain"
+          px={{ base: "4", md: "6" }}
+          pt={{ base: "4", md: "5" }}
+          pb={{ base: "3", md: "4" }}
+        >
+          <VStack gap={{ base: "3", md: "4" }}>
+            <VStack gap="0">
+              <Text
+                fontSize={{ base: "xs", md: "sm" }}
+                fontWeight="bold"
+                color="#D7B56D"
+                letterSpacing="0.20em"
+              >
+                {label}
+              </Text>
+              <Heading fontSize={{ base: "lg", md: "xl" }} textAlign="center">
+                ◇ {actorName} の行動
+              </Heading>
+            </VStack>
+
+            {(card || hidden) && (
+              <Box w="full" display="flex" justifyContent="center" overflow="hidden">
+                <CardActionAnimation
+                  card={card ?? HIDDEN_CARD}
+                  hidden={hidden}
+                  actionKind={actionKind}
+                  targetCard={targetCard}
+                />
+              </Box>
+            )}
+
+            <Box
+              w="full"
+              px={{ base: "3", md: "4" }}
+              py={{ base: "2.5", md: "3" }}
+              borderRadius="8px"
+              bg="rgba(255,255,255,.04)"
+              border="1px solid rgba(215,181,109,.20)"
             >
-              {label}
-            </Text>
-            <Heading size="lg" textAlign="center">
-              ◇ {actorName} の行動
-            </Heading>
+              <Text
+                fontSize={{ base: "sm", md: "md" }}
+                lineHeight="1.6"
+                textAlign="center"
+              >
+                {action}
+              </Text>
+            </Box>
           </VStack>
+        </Box>
 
-          {(card || hidden) && (
-            <MagicCard
-              card={card ?? HIDDEN_CARD}
-              hidden={hidden}
-            />
-          )}
-
+        {showContinueButton && (
           <Box
-            w="full"
-            px="4"
-            py="4"
-            borderRadius="8px"
-            bg="rgba(255,255,255,.04)"
-            border="1px solid rgba(215,181,109,.20)"
+            flexShrink={0}
+            px={{ base: "4", md: "6" }}
+            py={{ base: "3", md: "4" }}
+            bg="linear-gradient(180deg, rgba(10,9,7,.9), rgba(4,5,7,.99))"
+            borderTop="1px solid rgba(215,181,109,.18)"
+            boxShadow="0 -12px 28px rgba(0,0,0,.34)"
           >
-            <Text
-              fontSize={{ base: "md", md: "lg" }}
-              lineHeight="1.8"
-              textAlign="center"
-            >
-              {action}
-            </Text>
-          </Box>
-
-          {hidden && (
-            <Text fontSize="md" color="#9B9284" textAlign="center">
-              伏せられたカードの正体は公開されません
-            </Text>
-          )}
-
-          {showContinueButton && (
             <Button
-              size="lg"
+              size="md"
+              h={{ base: "44px", md: "48px" }}
               w="full"
               bg="linear-gradient(180deg, #392A16, #171008)"
               color="#F3E3B9"
@@ -124,8 +152,8 @@ export default function ActionOverlay({
             >
               {continueLabel}
             </Button>
-          )}
-        </VStack>
+          </Box>
+        )}
       </Box>
     </Box>
   );

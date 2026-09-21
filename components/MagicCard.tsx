@@ -10,6 +10,7 @@ type MagicCardProps = {
   onClick?: () => void;
   selected?: boolean;
   size?: "normal" | "small";
+  eager?: boolean;
 };
 
 export default function MagicCard({
@@ -18,12 +19,14 @@ export default function MagicCard({
   onClick,
   selected = false,
   size = "normal",
+  eager = true,
 }: MagicCardProps) {
   const width = size === "small" ? "92px" : "170px";
   const height = size === "small" ? "138px" : "255px";
 
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
   const backImagePath = `${basePath}/cards/card-back.png`;
+  const src = hidden ? backImagePath : getCardImagePath(card);
 
   return (
     <Box
@@ -55,15 +58,16 @@ export default function MagicCard({
       flexShrink={0}
     >
       <Image
-        src={hidden ? backImagePath : getCardImagePath(card)}
+        src={src}
         alt={hidden ? "カード裏面" : `${card.magic}-${card.number}`}
         w="100%"
         h="100%"
         objectFit="cover"
         display="block"
         draggable={false}
-        loading="lazy"
-        decoding="async"
+        loading={eager ? "eager" : "lazy"}
+        fetchPriority={eager ? "high" : "auto"}
+        decoding={eager ? "sync" : "async"}
       />
     </Box>
   );

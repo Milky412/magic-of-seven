@@ -42,6 +42,7 @@ export type Player = {
 };
 
 export type Phase = "setup" | "draft" | "playing" | "result";
+export type LastActionKind = "draft" | "summon" | "stack" | "destroy" | "moratorium" | "revive" | "truth" | null;
 export type GameState = {
   phase: Phase;
   players: Player[];
@@ -58,6 +59,10 @@ export type GameState = {
   lastActionCard: Card | null;
   lastActionActorId: string | null;
   lastActionCardHidden: boolean;
+  /** 直前の行動の種類。演出はカードの魔法属性ではなく、実際に行った行動に合わせる。 */
+  lastActionKind: LastActionKind;
+  /** 演出用の公開可能な対象カード。伏せ札の正体は絶対に入れない。 */
+  lastActionTargetCard: Card | null;
   /** 直前のモラトリアムで引いたカード。公開UIには直接出さず、本人向け通知に使う。 */
   lastDrawnCard: Card | null;
 };

@@ -71,10 +71,13 @@ export default function OnlineGameScreen({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [awaitingOpponentContinue, setAwaitingOpponentContinue] = useState(false);
+  const [showSelfActionAnimation, setShowSelfActionAnimation] = useState(false);
   const [actionPreviews, setActionPreviews] = useState<OnlineActionPreview[]>([]);
   const [previewCard, setPreviewCard] = useState<Card | null>(null);
   const [graveOpen, setGraveOpen] = useState(false);
   const [drawnCardNotice, setDrawnCardNotice] = useState<Card | null>(null);
+  const [pendingDrawnCardNotice, setPendingDrawnCardNotice] = useState<Card | null>(null);
+  const [completedSelfMoratoriumRevision, setCompletedSelfMoratoriumRevision] = useState<number | null>(null);
   const [syncSlow, setSyncSlow] = useState(false);
   const [syncError, setSyncError] = useState("");
   const [resultRevealReady, setResultRevealReady] = useState(false);
@@ -186,10 +189,22 @@ export default function OnlineGameScreen({
   }, [publicGame?.phase, publicGame?.revision]);
 
   useEffect(() => {
-    if (privateGame?.drawnCardNotice) {
-      setDrawnCardNotice(privateGame.drawnCardNotice);
+    const notice = privateGame?.drawnCardNotice;
+    if (!notice) return;
+    // public/private の到着順に関係なく、まず保留する。
+    setPendingDrawnCardNotice(notice);
+  }, [privateGame?.revision, privateGame?.drawnCardNotice?.id]);
+
+  useEffect(() => {
+    if (
+      pendingDrawnCardNotice &&
+      publicGame?.revision === completedSelfMoratoriumRevision
+    ) {
+      setDrawnCardNotice(pendingDrawnCardNotice);
+      setPendingDrawnCardNotice(null);
+      setCompletedSelfMoratoriumRevision(null);
     }
-  }, [privateGame?.revision]);
+  }, [pendingDrawnCardNotice, completedSelfMoratoriumRevision, publicGame?.revision]);
 
   useEffect(() => {
     const pending = pendingActionRef.current;
@@ -244,10 +259,13 @@ export default function OnlineGameScreen({
       previous.phase === "playing" &&
       publicGame.phase === "playing" &&
       publicGame.lastActionActorId &&
-      publicGame.lastActionActorId !== session.playerId &&
       publicGame.lastAction
     ) {
-      setAwaitingOpponentContinue(true);
+      if (publicGame.lastActionActorId === session.playerId) {
+        setShowSelfActionAnimation(true);
+      } else {
+        setAwaitingOpponentContinue(true);
+      }
     }
 
     previousPublicRef.current = {
@@ -493,6 +511,8 @@ export default function OnlineGameScreen({
             action={publicGame.lastAction}
             card={publicGame.lastActionCard}
             hidden={publicGame.lastActionCardHidden}
+            actionKind={publicGame.lastActionKind}
+            targetCard={publicGame.lastActionTargetCard}
             label="FINAL ACTION"
             autoContinueMs={1700}
             showContinueButton={false}
@@ -681,7 +701,6 @@ export default function OnlineGameScreen({
               <Heading size="md" color="#F2E5CB">{player.name}{player.id === session.playerId ? "（あなた）" : ""}</Heading>
               <Text fontSize="md" color="#9E917B">手札 {player.handCount}枚</Text>
             </HStack>
-            <Text fontSize="sm" color="#9A8D77" mt="1">ポイントはゲーム終了まで非公開</Text>
             <HStack mt="4" wrap="wrap" align="start">
               {player.field.length === 0 ? (
                 <Text color="#746B5E">場にカードなし</Text>
@@ -772,12 +791,43 @@ export default function OnlineGameScreen({
         </Box>
       )}
 
+      {showSelfActionAnimation &&
+        publicGame?.lastActionActorId === session.playerId &&
+        (publicGame.lastActionKind !== "stack" || privateGame.revision >= publicGame.revision) && (
+        <ActionOverlay
+          actorName={publicGame.players.find((p) => p.id === session.playerId)?.name ?? "あなた"}
+          action={publicGame.lastAction}
+          card={privateGame.lastOwnActionCard ?? publicGame.lastActionCard}
+          hidden={
+            publicGame.lastActionKind === "stack" && privateGame.lastOwnActionCard
+              ? false
+              : publicGame.lastActionCardHidden
+          }
+          actionKind={publicGame.lastActionKind}
+          targetCard={publicGame.lastActionTargetCard}
+          label="YOUR ACTION"
+          onContinue={() => {
+            setShowSelfActionAnimation(false);
+            if (publicGame.lastActionKind === "moratorium") {
+              setCompletedSelfMoratoriumRevision(publicGame.revision);
+              if (pendingDrawnCardNotice) {
+                setDrawnCardNotice(pendingDrawnCardNotice);
+                setPendingDrawnCardNotice(null);
+                setCompletedSelfMoratoriumRevision(null);
+              }
+            }
+          }}
+        />
+      )}
+
       {awaitingOpponentContinue && lastActor && (
         <ActionOverlay
           actorName={lastActor.name}
           action={playPublicGame.lastAction}
           card={playPublicGame.lastActionCard}
           hidden={playPublicGame.lastActionCardHidden}
+          actionKind={playPublicGame.lastActionKind}
+          targetCard={playPublicGame.lastActionTargetCard}
           label="PLAYER ACTION"
           onContinue={() => setAwaitingOpponentContinue(false)}
         />
@@ -880,7 +930,6 @@ function OpponentActionTracker({ playerName, phase }: { playerName: string; phas
           <Text color="#9C855D" fontSize="sm" letterSpacing=".18em">LIVE ACTION</Text>
           <Heading size="md" color="#F2E5CB">{playerName} の手番</Heading>
           <Text color="#D7C9B1" fontSize={{ base: "md", md: "lg" }}>{message}</Text>
-          <Text color="#8F8370" fontSize="sm">カードの種類・数字・確定前の対象は公開されません。</Text>
         </VStack>
       </HStack>
     </Box>

@@ -1,4 +1,4 @@
-import type { Card, GameState, TurnOrderPreference } from "@/game/types";
+import type { Card, GameState, LastActionKind, TurnOrderPreference } from "@/game/types";
 
 export type OnlineRoomStatus = "waiting" | "playing" | "finished";
 
@@ -74,6 +74,8 @@ export type PublicGameSnapshot = {
   lastActionActorId: string | null;
   lastActionCard: Card | null;
   lastActionCardHidden: boolean;
+  lastActionKind: LastActionKind;
+  lastActionTargetCard: Card | null;
   resultGameState: GameState | null;
   syncDebug?: OnlineSyncDebugSnapshot | null;
 };
@@ -88,6 +90,8 @@ export type PrivateGameSnapshot = {
   draftSelectedCard: Card | null;
   draftSubmitted: boolean;
   drawnCardNotice: Card | null;
+  /** 自分が直前に使ったカード。伏せ札の専用演出は本人にだけ渡す。 */
+  lastOwnActionCard: Card | null;
 };
 
 export type HostGameState = {

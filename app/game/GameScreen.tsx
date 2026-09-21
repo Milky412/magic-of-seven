@@ -57,6 +57,7 @@ export default function GameScreen({
   const [previewCard, setPreviewCard] = useState<Card | null>(null);
   const [graveOpen, setGraveOpen] = useState(false);
   const [drawnCardNotice, setDrawnCardNotice] = useState<Card | null>(null);
+  const [pendingDrawnCardNotice, setPendingDrawnCardNotice] = useState<Card | null>(null);
   const [resultRevealReady, setResultRevealReady] = useState(false);
 
   useEffect(() => {
@@ -68,7 +69,7 @@ export default function GameScreen({
     const currentId = game.turnOrder[game.currentTurn];
     const player = game.players.find((p) => p.id === currentId);
 
-    if (player?.kind === "cpu" && !awaitingCpuContinue) {
+    if (player?.kind === "cpu" && !awaitingCpuContinue && !awaitingLocalContinue) {
       const timer = window.setTimeout(() => {
         const next = annotateNewEffectOwner(game, cpuTakeTurn(game));
         setGame(next);
@@ -79,7 +80,7 @@ export default function GameScreen({
 
       return () => window.clearTimeout(timer);
     }
-  }, [awaitingCpuContinue, game, setGame]);
+  }, [awaitingCpuContinue, awaitingLocalContinue, game, setGame]);
 
   useEffect(() => {
     if (game.phase !== "result") {
@@ -142,7 +143,7 @@ export default function GameScreen({
               ✦
             </Text>
             <Text color="#BDB4A3">
-              CPUの手札は非公開です
+              CPUがカードを選んでいます…
             </Text>
           </Box>
         ) : (
@@ -195,6 +196,8 @@ export default function GameScreen({
             action={game.lastAction}
             card={game.lastActionCard}
             hidden={finalHidden}
+            actionKind={game.lastActionKind}
+            targetCard={game.lastActionTargetCard}
             label="FINAL ACTION"
             autoContinueMs={1700}
             showContinueButton={false}
@@ -217,7 +220,6 @@ export default function GameScreen({
     (p) => p.id === currentId
   )!;
   const isCpuTurn = current.kind === "cpu";
-  const isLocalBattle = game.players.every((p) => p.kind === "human");
   const interactionsLocked =
     isCpuTurn || awaitingCpuContinue || awaitingLocalContinue;
 
@@ -232,7 +234,6 @@ export default function GameScreen({
     lastActor?.kind === "cpu";
   const showLocalActionPanel =
     awaitingLocalContinue &&
-    isLocalBattle &&
     lastActor?.kind === "human";
   const showActionPanel = showCpuActionPanel || showLocalActionPanel;
 
@@ -240,24 +241,20 @@ export default function GameScreen({
     const next = annotateNewEffectOwner(game, rawNext);
     const actorId = next.lastActionActorId;
 
-    // モラトリアムで引いたカードは、墓場から復活させたモラトリアムを後で使った場合も
-    // engineが明示的にlastDrawnCardへ記録するため、使用者本人に確実に表示できる。
+    // モラトリアムは「魔法演出 → 引いたカード」の順に見せる。
+    // ここでは引いたカードを保留し、ActionOverlayを閉じたあとに表示する。
     if (actorId && next.lastDrawnCard) {
       const actor = next.players.find((p) => p.id === actorId);
-      if (actor?.kind === "human") setDrawnCardNotice(next.lastDrawnCard);
+      if (actor?.kind === "human") setPendingDrawnCardNotice(next.lastDrawnCard);
     }
 
     setGame(next);
-    if (isLocalBattle && next.phase === "playing" && next.lastActionActorId) {
-      setAwaitingLocalContinue(true);
+    if (next.phase === "playing" && next.lastActionActorId) {
+      const actor = next.players.find((p) => p.id === next.lastActionActorId);
+      if (actor?.kind === "human") setAwaitingLocalContinue(true);
     }
   };
 
-  const localActionHidden =
-    showLocalActionPanel &&
-    Boolean(game.lastActionCard) &&
-    ["guard", "double", "betray"].includes(game.lastActionCard!.magic) &&
-    /重ね|伏せ/.test(game.lastAction);
 
   const chooseCard = (card: Card) => {
     if (interactionsLocked) return;
@@ -411,9 +408,6 @@ export default function GameScreen({
                 {p.name}
                 {p.kind === "cpu" ? ` ◇ CPU Lv.${p.cpuLevel ?? 5}` : ""}
               </Heading>
-              <Text color="#BDB4A3">
-                ポイント非公開
-              </Text>
             </HStack>
 
             <Text
@@ -617,11 +611,23 @@ export default function GameScreen({
           actorName={lastActor.name}
           action={game.lastAction}
           card={game.lastActionCard}
-          hidden={showCpuActionPanel ? game.lastActionCardHidden : localActionHidden}
+          hidden={showCpuActionPanel ? game.lastActionCardHidden : false}
+          actionKind={game.lastActionKind}
+          targetCard={game.lastActionTargetCard}
           label={showCpuActionPanel ? "CPU ACTION" : "PLAYER ACTION"}
           onContinue={() => {
+            const shouldShowDraw =
+              showLocalActionPanel &&
+              game.lastActionKind === "moratorium" &&
+              Boolean(pendingDrawnCardNotice);
+
             setAwaitingCpuContinue(false);
             setAwaitingLocalContinue(false);
+
+            if (shouldShowDraw && pendingDrawnCardNotice) {
+              setDrawnCardNotice(pendingDrawnCardNotice);
+              setPendingDrawnCardNotice(null);
+            }
           }}
         />
       )}

@@ -6,7 +6,7 @@ export function createInitialState(): GameState {
   return {
     phase: "setup", players: [], deck: [], graveyard: [], turnOrder: [], currentTurn: 0,
     draftPacks: [], draftSelections: [], draftRound: 0, draftPlayerIndex: 0, winnerIds: [],
-    lastAction: "", lastActionCard: null, lastActionActorId: null, lastActionCardHidden: false, lastDrawnCard: null,
+    lastAction: "", lastActionCard: null, lastActionActorId: null, lastActionCardHidden: false, lastActionKind: null, lastActionTargetCard: null, lastDrawnCard: null,
   };
 }
 
@@ -35,7 +35,7 @@ export function startGame(setups: PlayerSetup[], turnOrderPreference: TurnOrderP
   return {
     phase: "draft", players, deck, graveyard: [], turnOrder, currentTurn: 0,
     draftPacks: packs, draftSelections: players.map(() => []), draftRound: 0, draftPlayerIndex: 0, winnerIds: [],
-    lastAction: "ドラフトを開始しました。", lastActionCard: null, lastActionActorId: null, lastActionCardHidden: false, lastDrawnCard: null,
+    lastAction: "ドラフトを開始しました。", lastActionCard: null, lastActionActorId: null, lastActionCardHidden: false, lastActionKind: "draft", lastActionTargetCard: null, lastDrawnCard: null,
   };
 }
 
@@ -50,6 +50,8 @@ export function draftPick(state: GameState, cardId: string): GameState {
   s.lastActionCard = picked;
   s.lastActionActorId = s.players[p]?.id ?? null;
   s.lastActionCardHidden = s.players[p]?.kind === "cpu";
+  s.lastActionKind = "draft";
+  s.lastActionTargetCard = null;
   if (p < s.players.length - 1) { s.draftPlayerIndex++; return s; }
   s.draftPlayerIndex = 0;
   s.draftRound++;
@@ -74,6 +76,7 @@ export function placeAsPoint(state: GameState, playerId: string, cardId: string)
   player.field.push({ id: `stack-${crypto.randomUUID()}`, ownerId: playerId, baseCard: card, effects: [] });
   s.lastAction = `${player.name}は${describeCard(card)}をポイントとして置きました。`;
   s.lastActionCard = card; s.lastActionActorId = player.id; s.lastActionCardHidden = false;
+  s.lastActionKind = "summon"; s.lastActionTargetCard = null;
   return endTurn(s);
 }
 
@@ -91,14 +94,12 @@ export function stackEffect(state: GameState, playerId: string, cardId: string, 
   target.effects.push({ card, isFaceUp: false, placedByPlayerId: playerId, revealedByTruth: false });
 
   const targetOwner = s.players.find((p) => p.id === target.ownerId)!;
-  if (player.kind === "cpu") {
-    s.lastAction = `${player.name}は${targetOwner.name}の場のカードにカードを1枚伏せて重ねました。`;
-    s.lastActionCardHidden = true;
-  } else {
-    s.lastAction = `${player.name}は${describeCard(card)}を使い、${targetOwner.name}の場のカードに重ねました。`;
-    s.lastActionCardHidden = false;
-  }
+  // 伏せる魔法はローカル戦でもオンライン戦でも、行動表示で正体を公開しない。
+  s.lastAction = `${player.name}は${targetOwner.name}の場のカードにカードを1枚伏せて重ねました。`;
+  s.lastActionCardHidden = true;
   s.lastActionCard = card; s.lastActionActorId = player.id;
+  s.lastActionKind = "stack";
+  s.lastActionTargetCard = target.baseCard;
   return endTurn(s);
 }
 
@@ -110,17 +111,20 @@ export function useDestroy(state: GameState, playerId: string, cardId: string, t
   const sourcePlayer = s.players.find((p) => p.id === playerId)!;
   const target = findStackWithOwner(s, targetStackId); if (!target) return state;
   const { owner, stack } = target;
+  const publicTargetCard = stack.baseCard;
   while (stack.effects.length) {
     const top = stack.effects.pop()!; s.graveyard.push(top.card);
     if (top.card.magic === "guard") {
       s.lastAction = `${sourcePlayer.name}は${describeCard(source)}で破壊を試みましたが、守護の魔法に止められました。`;
       s.lastActionCard = source; s.lastActionActorId = sourcePlayer.id; s.lastActionCardHidden = false;
+      s.lastActionKind = "destroy"; s.lastActionTargetCard = publicTargetCard;
       return endTurn(s);
     }
   }
   s.graveyard.push(stack.baseCard); owner.field = owner.field.filter((x) => x.id !== stack.id);
   s.lastAction = `${sourcePlayer.name}は${describeCard(source)}で${owner.name}の場のカードを破壊しました。`;
   s.lastActionCard = source; s.lastActionActorId = sourcePlayer.id; s.lastActionCardHidden = false;
+  s.lastActionKind = "destroy"; s.lastActionTargetCard = publicTargetCard;
   return endTurn(s);
 }
 
@@ -135,6 +139,7 @@ export function useMoratorium(state: GameState, playerId: string, cardId: string
   s.lastDrawnCard = drawn ?? null;
   s.lastAction = drawn ? `${player.name}は${describeCard(source)}を使い、山札から1枚引きました。` : `${player.name}は${describeCard(source)}を使いましたが、山札は空でした。`;
   s.lastActionCard = source; s.lastActionActorId = player.id; s.lastActionCardHidden = false;
+  s.lastActionKind = "moratorium"; s.lastActionTargetCard = null;
   return endTurn(s);
 }
 
@@ -149,6 +154,7 @@ export function useRevive(state: GameState, playerId: string, cardId: string, ta
   if (revivedCard) player.hand.push(revivedCard);
   s.lastAction = revivedCard ? `${player.name}は${describeCard(source)}で${describeCard(revivedCard)}を墓場から戻しました。` : `${player.name}は${describeCard(source)}を使いましたが、復活できるカードはありませんでした。`;
   s.lastActionCard = source; s.lastActionActorId = player.id; s.lastActionCardHidden = false;
+  s.lastActionKind = "revive"; s.lastActionTargetCard = revivedCard;
   return endTurn(s);
 }
 
@@ -158,6 +164,7 @@ export function useTruth(state: GameState, playerId: string, cardId: string, tar
   const source = removeHandCard(s, playerId, cardId); if (!source) return state;
   s.graveyard.push(source);
   const target = findStack(s, targetStackId);
+  const publicTargetCard = target?.baseCard ?? null;
   if (target) {
     // 発動時点で存在する効果カードだけを公開する。
     // 以後stackEffectで追加されるカードは revealedByTruth:false / isFaceUp:false なので公開されない。
@@ -172,6 +179,7 @@ export function useTruth(state: GameState, playerId: string, cardId: string, tar
   const player = s.players.find((p) => p.id === playerId)!;
   s.lastAction = `${player.name}は${describeCard(source)}を使い、重なっていたカードを公開しました。`;
   s.lastActionCard = source; s.lastActionActorId = player.id; s.lastActionCardHidden = false;
+  s.lastActionKind = "truth"; s.lastActionTargetCard = publicTargetCard;
   return endTurn(s);
 }
 

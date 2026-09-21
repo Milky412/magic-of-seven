@@ -965,6 +965,8 @@ function createPublicSnapshot(
   let lastAction = game.lastAction;
   let lastActionCard = game.lastActionCard;
   let lastActionCardHidden = game.lastActionCardHidden;
+  let lastActionKind = game.lastActionKind ?? null;
+  let lastActionTargetCard = game.lastActionTargetCard ?? null;
 
   // オンラインでは人間同士でも、伏せて重ねたカードの種類を公開しない。
   if (actionType === "stackEffect" && game.lastActionActorId) {
@@ -972,6 +974,8 @@ function createPublicSnapshot(
     lastAction = `${actor?.name ?? "プレイヤー"}は場のカードにカードを1枚伏せて重ねました。`;
     lastActionCard = null;
     lastActionCardHidden = true;
+    lastActionKind = "stack";
+    lastActionTargetCard = game.lastActionTargetCard ?? null;
   }
 
   return {
@@ -1005,6 +1009,8 @@ function createPublicSnapshot(
     lastActionActorId: game.lastActionActorId,
     lastActionCard,
     lastActionCardHidden,
+    lastActionKind,
+    lastActionTargetCard,
     syncDebug,
     resultGameStateJson: game.phase === "result" ? JSON.stringify(game) : null,
   };
@@ -1033,6 +1039,8 @@ function createPrivateSnapshot(
     draftSelectedCard,
     draftSubmitted: Boolean(pendingDraftCardId),
     drawnCardNotice: state.privateDrawNotices[playerId] ?? null,
+    lastOwnActionCard:
+      state.game.lastActionActorId === playerId ? state.game.lastActionCard : null,
   };
 }
 

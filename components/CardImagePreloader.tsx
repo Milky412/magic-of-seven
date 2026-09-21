@@ -3,8 +3,9 @@
 import { useEffect } from "react";
 import { MAGIC_TYPES } from "@/game/cards";
 
-const PRELOAD_MARKER = "seven-magic-card-images-preloaded-v1";
-const BATCH_SIZE = 7;
+const PRELOAD_MARKER = "seven-magic-card-images-preloaded-v2";
+const IMMEDIATE_BATCH_SIZE = 14;
+const DEFERRED_BATCH_SIZE = 8;
 
 function getBasePath() {
   return process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -24,11 +25,11 @@ function createCardUrls() {
 
 function preloadImage(src: string, priority: "high" | "low" = "low") {
   return new Promise<void>((resolve) => {
-    const image = new Image();
+    const image = new window.Image();
     if ("fetchPriority" in image) {
       image.fetchPriority = priority;
     }
-    image.decoding = "async";
+    image.decoding = priority === "high" ? "sync" : "async";
     image.onload = () => resolve();
     image.onerror = () => resolve();
     image.src = src;
@@ -45,14 +46,13 @@ function waitForIdle() {
     }).requestIdleCallback;
 
     if (typeof requestIdleCallback === "function") {
-      requestIdleCallback(() => resolve(), { timeout: 700 });
+      requestIdleCallback(() => resolve(), { timeout: 220 });
       return;
     }
 
-    setTimeout(resolve, 80);
+    window.setTimeout(resolve, 24);
   });
 }
-
 
 export default function CardImagePreloader() {
   useEffect(() => {
@@ -60,19 +60,17 @@ export default function CardImagePreloader() {
     const urls = createCardUrls();
 
     const run = async () => {
-      // カード裏面はドラフト・伏せ札で頻繁に使うため最優先。
-      await preloadImage(urls[0], "high");
+      const firstWave = urls.slice(0, IMMEDIATE_BATCH_SIZE);
+      await Promise.all(firstWave.map((src, index) => preloadImage(src, index < 6 ? "high" : "low")));
       if (cancelled) return;
 
-      // 以前この端末で読み込み済みでも、HTTPキャッシュの確認は軽いので
-      // 全カードを再度 Image に通してブラウザへ利用を促す。
-      const remaining = urls.slice(1);
-      for (let index = 0; index < remaining.length; index += BATCH_SIZE) {
+      const remaining = urls.slice(IMMEDIATE_BATCH_SIZE);
+      for (let index = 0; index < remaining.length; index += DEFERRED_BATCH_SIZE) {
         if (cancelled) return;
         await waitForIdle();
         if (cancelled) return;
 
-        const batch = remaining.slice(index, index + BATCH_SIZE);
+        const batch = remaining.slice(index, index + DEFERRED_BATCH_SIZE);
         await Promise.all(batch.map((src) => preloadImage(src)));
       }
 
@@ -80,7 +78,7 @@ export default function CardImagePreloader() {
         try {
           window.sessionStorage.setItem(PRELOAD_MARKER, "1");
         } catch {
-          // Storageが使えない環境でも先読み自体は継続できる。
+          // ignore
         }
       }
     };
