@@ -14,33 +14,6 @@ const STORAGE_BGM_VOLUME = "seven-magic-bgm-volume";
 const STORAGE_SE_ENABLED = "seven-magic-se-enabled";
 const STORAGE_SE_VOLUME = "seven-magic-se-volume";
 
-const CHORDS = [
-  // A minor を中心にした、少し映画音楽寄りの循環。
-  [220.0, 261.63, 329.63, 392.0],      // Am7
-  [174.61, 220.0, 261.63, 329.63],     // Fmaj7
-  [130.81, 196.0, 246.94, 329.63],     // C/G
-  [164.81, 246.94, 293.66, 392.0],     // Em7/B
-  [146.83, 220.0, 293.66, 349.23],     // Dm7/A
-  [174.61, 261.63, 349.23, 440.0],     // F/A
-  [196.0, 246.94, 293.66, 392.0],      // G
-  [164.81, 207.65, 246.94, 329.63],    // Em
-];
-
-const MELODY_A = [
-  659.25, 0, 783.99, 880.0, 783.99, 698.46, 659.25, 0,
-  523.25, 0, 659.25, 698.46, 659.25, 587.33, 523.25, 0,
-];
-
-const MELODY_B = [
-  880.0, 987.77, 1046.5, 0, 987.77, 880.0, 783.99, 0,
-  698.46, 783.99, 880.0, 987.77, 880.0, 783.99, 698.46, 0,
-];
-
-const MELODY_C = [
-  1046.5, 0, 1174.66, 1318.51, 1174.66, 1046.5, 987.77, 0,
-  880.0, 987.77, 1046.5, 1174.66, 1046.5, 987.77, 880.0, 0,
-];
-
 function tone(
   ctx: AudioContext,
   destination: AudioNode,
@@ -95,22 +68,24 @@ function noise(
 export default function BgmController() {
   const [bgmEnabled, setBgmEnabled] = useState(true);
   const [seEnabled, setSeEnabled] = useState(true);
-  const [bgmVolume, setBgmVolume] = useState(0.18);
-  const [seVolume, setSeVolume] = useState(0.3);
+  const [bgmVolume, setBgmVolume] = useState(0.2);
+  const [seVolume, setSeVolume] = useState(0.42);
   const [ready, setReady] = useState(false);
   const [open, setOpen] = useState(false);
 
   const ctxRef = useRef<AudioContext | null>(null);
-  const bgmGainRef = useRef<GainNode | null>(null);
   const seGainRef = useRef<GainNode | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const stepRef = useRef(0);
+  const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
+  const cardSeAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
   useEffect(() => {
     const savedBgm = window.localStorage.getItem(STORAGE_BGM_ENABLED);
     const savedBgmVolume = window.localStorage.getItem(STORAGE_BGM_VOLUME);
     const savedSe = window.localStorage.getItem(STORAGE_SE_ENABLED);
     const savedSeVolume = window.localStorage.getItem(STORAGE_SE_VOLUME);
+
     if (savedBgm !== null) setBgmEnabled(savedBgm === "true");
     if (savedSe !== null) setSeEnabled(savedSe === "true");
     if (savedBgmVolume !== null) {
@@ -119,88 +94,32 @@ export default function BgmController() {
     }
     if (savedSeVolume !== null) {
       const parsed = Number(savedSeVolume);
-      if (Number.isFinite(parsed)) setSeVolume(Math.min(0.65, Math.max(0, parsed)));
+      if (Number.isFinite(parsed)) setSeVolume(Math.min(0.8, Math.max(0, parsed)));
     }
+
+    const bgm = new Audio(`${basePath}/audio/bgm/BGM.mp3`);
+    bgm.loop = true;
+    bgm.preload = "auto";
+    bgmAudioRef.current = bgm;
+
+    const cardSe = new Audio(`${basePath}/audio/se/Card_SE.mp3`);
+    cardSe.preload = "auto";
+    cardSeAudioRef.current = cardSe;
+
     setReady(true);
-  }, []);
 
-  const stopScheduler = () => {
-    if (timerRef.current !== null) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  };
+    return () => {
+      bgm.pause();
+      bgm.src = "";
+      cardSe.pause();
+      cardSe.src = "";
+      bgmAudioRef.current = null;
+      cardSeAudioRef.current = null;
+    };
+  }, [basePath]);
 
-  const scheduleStep = (ctx: AudioContext, master: GainNode) => {
-    const step = stepRef.current++;
-    const phraseStep = step % 64;
-    const now = ctx.currentTime + 0.025;
-    const chord = CHORDS[Math.floor(step / 8) % CHORDS.length];
-
-    // 64ステップで「導入→上昇→クライマックス→余韻」を作る。
-    const intensity =
-      phraseStep < 16 ? 0.58 :
-      phraseStep < 32 ? 0.82 :
-      phraseStep < 48 ? 1.0 :
-      0.72;
-
-    // ストリングス/パッド風。8ステップごとに和音を大きく広げる。
-    if (step % 8 === 0) {
-      chord.forEach((freq, i) => {
-        tone(ctx, master, freq / 2, now, 4.55, (0.017 - i * 0.0014) * intensity, "sine", 0.24);
-        tone(ctx, master, freq, now + 0.025, 3.8, (0.0075 - i * 0.0006) * intensity, "triangle", 0.20);
-      });
-      // チェロ/コントラバス風の根音。
-      tone(ctx, master, chord[0] / 4, now, 3.2, 0.029 * intensity, "triangle", 0.08);
-      tone(ctx, master, chord[0] / 8, now + 0.03, 2.3, 0.012 * intensity, "sine", 0.11);
-    }
-
-    // 中盤から低音オスティナートを追加して推進力を出す。
-    if (phraseStep >= 16 && phraseStep < 52 && step % 2 === 0) {
-      const bassPattern = [0, 2, 0, 1] as const;
-      const bass = chord[bassPattern[Math.floor(step / 2) % bassPattern.length]] / 2;
-      tone(ctx, master, bass, now, 0.44, 0.012 * intensity, "triangle", 0.018);
-    }
-
-    // 16分音符風アルペジオ。後半ほど音域を広げる。
-    const arpIndex = step % 8 < 4 ? step % 4 : 3 - (step % 4);
-    const arpOctave = phraseStep >= 32 && phraseStep < 48 ? 4 : 2;
-    const arp = chord[Math.max(0, Math.min(chord.length - 1, arpIndex))] * arpOctave;
-    tone(ctx, master, arp, now + 0.045, 0.34, 0.0065 * intensity, "sine", 0.012);
-
-    // メロディは展開ごとに別モチーフへ。
-    const melody = phraseStep < 24 ? MELODY_A : phraseStep < 48 ? MELODY_B : MELODY_C;
-    const melodyFreq = melody[step % melody.length];
-    if (melodyFreq) {
-      tone(ctx, master, melodyFreq, now + 0.018, 0.92, 0.0175 * intensity, "sine", 0.035);
-      tone(ctx, master, melodyFreq / 2, now + 0.028, 0.78, 0.006 * intensity, "triangle", 0.045);
-      if (phraseStep >= 32 && phraseStep < 48) {
-        tone(ctx, master, melodyFreq * 1.5, now + 0.04, 0.58, 0.0035, "sine", 0.028);
-      }
-    }
-
-    // 映画音楽風の軽い打楽器。ノイズを低めに混ぜ、耳障りにならないようにする。
-    if (phraseStep >= 16 && step % 4 === 0) {
-      noise(ctx, master, now, 0.16, 0.0065 * intensity, 480);
-      tone(ctx, master, 82.41, now, 0.30, 0.012 * intensity, "sine", 0.006);
-    }
-
-    // クライマックスの頭で鐘のようなアクセント。
-    if (phraseStep === 32 || phraseStep === 40) {
-      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
-        tone(ctx, master, f, now + i * 0.045, 1.45, 0.010 - i * 0.0012, "sine", 0.02);
-      });
-    }
-
-    // ループ終盤は音数を減らして次の循環へ自然につなげる。
-    if (phraseStep >= 56 && step % 4 === 0) {
-      tone(ctx, master, chord[0], now, 1.25, 0.008, "sine", 0.08);
-    }
-  };
-
-  const ensureAudio = async () => {
+  const ensureAudioContext = async () => {
     let ctx = ctxRef.current;
-    let bgmGain = bgmGainRef.current;
     let seGain = seGainRef.current;
 
     if (!ctx) {
@@ -218,40 +137,51 @@ export default function BgmController() {
       compressor.release.value = 0.2;
       compressor.connect(ctx.destination);
 
-      bgmGain = ctx.createGain();
       seGain = ctx.createGain();
-      bgmGain.gain.value = bgmEnabled ? bgmVolume : 0;
       seGain.gain.value = seEnabled ? seVolume : 0;
-      bgmGain.connect(compressor);
       seGain.connect(compressor);
 
       ctxRef.current = ctx;
-      bgmGainRef.current = bgmGain;
       seGainRef.current = seGain;
     }
 
     if (ctx.state === "suspended") await ctx.resume();
-
-    if (bgmGain) bgmGain.gain.setTargetAtTime(bgmEnabled ? bgmVolume : 0, ctx.currentTime, 0.06);
     if (seGain) seGain.gain.setTargetAtTime(seEnabled ? seVolume : 0, ctx.currentTime, 0.035);
-
-    if (bgmEnabled && timerRef.current === null && bgmGain) {
-      scheduleStep(ctx, bgmGain);
-      timerRef.current = window.setInterval(() => {
-        const currentCtx = ctxRef.current;
-        const currentGain = bgmGainRef.current;
-        if (currentCtx && currentGain && currentCtx.state === "running") {
-          scheduleStep(currentCtx, currentGain);
-        }
-      }, 520);
-    }
-
     return ctx;
+  };
+
+  const startBgm = async () => {
+    const bgm = bgmAudioRef.current;
+    if (!bgm || !bgmEnabled) return;
+    bgm.volume = Math.min(1, bgmVolume * 2);
+    try {
+      await bgm.play();
+    } catch {
+      // モバイルの自動再生制限時は、次のユーザー操作で再試行する。
+    }
+  };
+
+  const playCardSe = () => {
+    if (!seEnabled) return;
+    const template = cardSeAudioRef.current;
+    if (!template) return;
+
+    const player = template.cloneNode(true) as HTMLAudioElement;
+    player.volume = Math.min(1, Math.max(0, seVolume * 1.35));
+    player.currentTime = 0;
+    void player.play().catch(() => undefined);
   };
 
   const playSfx = async (name: GameSfxName) => {
     if (!seEnabled) return;
-    const ctx = await ensureAudio();
+
+    // アップロードされたカードSEをカード操作に使う。
+    if (name === "card") {
+      playCardSe();
+      return;
+    }
+
+    const ctx = await ensureAudioContext();
     const out = seGainRef.current;
     if (!ctx || !out) return;
     const now = ctx.currentTime + 0.008;
@@ -259,10 +189,6 @@ export default function BgmController() {
     if (name === "click") {
       tone(ctx, out, 760, now, 0.075, 0.055, "sine", 0.005);
       tone(ctx, out, 1160, now + 0.012, 0.055, 0.025, "sine", 0.004);
-    } else if (name === "card") {
-      noise(ctx, out, now, 0.13, 0.04, 1500);
-      tone(ctx, out, 390, now, 0.14, 0.032, "triangle", 0.006);
-      tone(ctx, out, 520, now + 0.045, 0.12, 0.022, "sine", 0.006);
     } else if (name === "magic") {
       [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
         tone(ctx, out, f, now + i * 0.055, 0.5 - i * 0.035, 0.038 - i * 0.004, "sine", 0.012),
@@ -286,13 +212,17 @@ export default function BgmController() {
   useEffect(() => {
     if (!ready) return;
 
-    const firstGesture = () => void ensureAudio();
+    const firstGesture = () => {
+      void startBgm();
+      void ensureAudioContext();
+    };
     const delegatedPointer = (event: PointerEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
       const sfxTarget = target.closest<HTMLElement>("[data-sfx]");
       if (sfxTarget?.dataset.sfx === "card") void playSfx("card");
       else if (target.closest("button")) void playSfx("click");
+      void startBgm();
     };
     const customSfx = (event: Event) => {
       const name = (event as CustomEvent<GameSfxName>).detail;
@@ -310,25 +240,30 @@ export default function BgmController() {
   }, [ready, seEnabled, bgmEnabled, bgmVolume, seVolume]);
 
   useEffect(() => {
+    if (!ready) return;
     window.localStorage.setItem(STORAGE_BGM_ENABLED, String(bgmEnabled));
     window.localStorage.setItem(STORAGE_BGM_VOLUME, String(bgmVolume));
-    const ctx = ctxRef.current;
-    const gain = bgmGainRef.current;
-    if (ctx && gain) gain.gain.setTargetAtTime(bgmEnabled ? bgmVolume : 0, ctx.currentTime, 0.06);
-    if (!bgmEnabled) stopScheduler();
-    else if (ctx?.state === "running") void ensureAudio();
-  }, [bgmEnabled, bgmVolume]);
+
+    const bgm = bgmAudioRef.current;
+    if (!bgm) return;
+    bgm.volume = Math.min(1, bgmVolume * 2);
+    if (!bgmEnabled) {
+      bgm.pause();
+    } else {
+      void startBgm();
+    }
+  }, [ready, bgmEnabled, bgmVolume]);
 
   useEffect(() => {
+    if (!ready) return;
     window.localStorage.setItem(STORAGE_SE_ENABLED, String(seEnabled));
     window.localStorage.setItem(STORAGE_SE_VOLUME, String(seVolume));
     const ctx = ctxRef.current;
     const gain = seGainRef.current;
     if (ctx && gain) gain.gain.setTargetAtTime(seEnabled ? seVolume : 0, ctx.currentTime, 0.035);
-  }, [seEnabled, seVolume]);
+  }, [ready, seEnabled, seVolume]);
 
   useEffect(() => () => {
-    stopScheduler();
     void ctxRef.current?.close();
   }, []);
 
@@ -371,14 +306,14 @@ export default function BgmController() {
             aria-label="SE音量"
             type="range"
             min="0"
-            max="0.65"
+            max="0.8"
             step="0.01"
             value={seVolume}
             onChange={(e) => setSeVolume(Number(e.target.value))}
             style={{ width: "100%", margin: "6px 0 4px" }}
           />
           <div style={{ marginTop: 8, fontSize: 10, color: "#968A77", lineHeight: 1.55 }}>
-            幻想的なBGMとカード・魔法・開示音。設定はこの端末に保存されます。
+            BGM.mp3をループ再生し、カード操作にはCard_SE.mp3を使用します。魔法・開示などのSEは既存の演出音を残しています。
           </div>
         </div>
       )}
