@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Box, Button, Heading, HStack, Text, VStack } from "@chakra-ui/react";
+import { Box, Button, Heading, HStack, SimpleGrid, Text, VStack } from "@chakra-ui/react";
 import { playGameSfx } from "@/components/BgmController";
 
 const STEPS = [
@@ -39,11 +39,13 @@ const STEPS = [
 
 export default function HowToPlayTutorial({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
+  const [section, setSection] = useState<"rules" | "magic">("rules");
   const current = STEPS[step];
 
   useEffect(() => {
+    if (section !== "rules") return;
     playGameSfx(step === 4 ? "reveal" : step >= 2 ? "magic" : "card");
-  }, [step]);
+  }, [step, section]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -68,6 +70,12 @@ export default function HowToPlayTutorial({ onClose }: { onClose: () => void }) 
         @keyframes sm-stack2 { 0%,35% { transform: translate(0,-80px) rotate(9deg); opacity:0; } 100% { transform: translate(14px,-2px) rotate(6deg); opacity:1; } }
         @keyframes sm-flip { 0%,38% { transform: rotateY(0deg); } 62%,100% { transform: rotateY(180deg); } }
         @keyframes sm-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes sm-destroy { 0%,25% { opacity:1; transform: translateX(0) rotate(0); filter:brightness(1); } 52% { opacity:.9; transform: translateX(8px) rotate(8deg); filter:brightness(1.8); } 72%,100% { opacity:.08; transform: translateX(35px) rotate(22deg) scale(.72); filter:blur(3px); } }
+        @keyframes sm-shield { 0%,100% { transform:scale(.86); opacity:.25; box-shadow:0 0 6px rgba(104,184,255,.15); } 50% { transform:scale(1.08); opacity:.9; box-shadow:0 0 36px rgba(104,184,255,.5); } }
+        @keyframes sm-pop { 0%,100% { transform:scale(.92); opacity:.65; } 48% { transform:scale(1.15); opacity:1; } }
+        @keyframes sm-discard { 0%,28% { transform:translateY(0) rotate(0); opacity:1; } 58%,100% { transform:translateY(55px) rotate(-10deg) scale(.78); opacity:.18; } }
+        @keyframes sm-draw { 0%,42% { transform:translateX(45px) scale(.8); opacity:.15; } 72%,100% { transform:translateX(0) scale(1); opacity:1; } }
+        @keyframes sm-revive { 0%,25% { transform:translateY(54px) scale(.75); opacity:.2; filter:grayscale(.7); } 68%,100% { transform:translateY(-8px) scale(1.05); opacity:1; filter:grayscale(0); box-shadow:0 0 30px rgba(215,181,109,.35); } }
       `}</style>
 
       <Box maxW="920px" mx="auto" minH="calc(100vh - 64px)" display="flex" alignItems="center">
@@ -80,6 +88,33 @@ export default function HowToPlayTutorial({ onClose }: { onClose: () => void }) 
             <Button size="sm" variant="ghost" color="#C8B994" onClick={onClose}>閉じる ×</Button>
           </HStack>
 
+          <HStack mb="5" gap="2" flexWrap="wrap">
+            <Button
+              size="sm"
+              variant={section === "rules" ? "solid" : "outline"}
+              bg={section === "rules" ? "linear-gradient(180deg, #392A16, #171008)" : "transparent"}
+              color="#F3E3B9"
+              border="1px solid rgba(215,181,109,.45)"
+              onClick={() => setSection("rules")}
+            >
+              遊び方
+            </Button>
+            <Button
+              size="sm"
+              variant={section === "magic" ? "solid" : "outline"}
+              bg={section === "magic" ? "linear-gradient(180deg, #392A16, #171008)" : "transparent"}
+              color="#F3E3B9"
+              border="1px solid rgba(215,181,109,.45)"
+              onClick={() => { setSection("magic"); playGameSfx("magic"); }}
+            >
+              ✦ 7つの魔法
+            </Button>
+          </HStack>
+
+          {section === "magic" ? (
+            <MagicGuide />
+          ) : (
+          <>
           <Box key={step} animation="sm-in .34s ease both">
             <Box minH={{ base: "255px", md: "310px" }} border="1px solid rgba(215,181,109,.22)" borderRadius="12px" bg="radial-gradient(circle at 50% 45%, rgba(215,181,109,.12), transparent 42%), rgba(3,4,6,.68)" display="flex" alignItems="center" justifyContent="center" overflow="hidden" position="relative">
               <TutorialVisual kind={current.visual} />
@@ -107,11 +142,109 @@ export default function HowToPlayTutorial({ onClose }: { onClose: () => void }) 
               )}
             </HStack>
           </HStack>
+          </>
+          )}
         </Box>
       </Box>
     </Box>
   );
 }
+
+type MagicGuideEntry = {
+  id: "destroy" | "guard" | "double" | "betray" | "moratorium" | "revive" | "truth";
+  short: string;
+  name: string;
+  summary: string;
+  detail: string;
+  tip: string;
+  visual: "destroy" | "guard" | "double" | "betray" | "moratorium" | "revive" | "truth";
+};
+
+const MAGIC_GUIDE: MagicGuideEntry[] = [
+  { id: "destroy", short: "破壊", name: "破壊の魔法", summary: "相手の場を上から崩す", detail: "相手の場に重ねられたカードを上から破壊します。守護がある場合は守護だけを破壊して止まります。", tip: "高得点や増大がありそうな場を狙うと強力。", visual: "destroy" },
+  { id: "guard", short: "守護", name: "守護の魔法", summary: "破壊を一度止め、最後に+1", detail: "自分の場に伏せて重ねます。破壊を受けると守護自身が壊れて、それより下のカードを守ります。最終得点では+1点です。", tip: "高得点や増大を重ねた大事な場の保険に。", visual: "guard" },
+  { id: "double", short: "増大", name: "増大の魔法", summary: "その場の得点を×2", detail: "自分の場に伏せて重ね、最終集計でその場所の得点を2倍にします。", tip: "6・7点など高いポイントに重ねるほど効果大。", visual: "double" },
+  { id: "betray", short: "裏切り", name: "裏切りの魔法", summary: "その場の得点を×−1", detail: "場に伏せて重ね、最終集計でその場所の得点をマイナスに反転させます。2枚重なると−1×−1で正に戻ります。", tip: "相手への攻撃だけでなく、自分に二重で置くブラフも可能。", visual: "betray" },
+  { id: "moratorium", short: "モラトリアム", name: "モラトリアムの魔法", summary: "捨てて山札から1枚引く", detail: "このカードを墓場へ送り、山札が残っていれば1枚引きます。通常の行動と違い、手札枚数を維持したまま手番を使えます。", tip: "手数を増やせるので、低数字でも非常に価値が高い魔法。", visual: "moratorium" },
+  { id: "revive", short: "復活", name: "復活の魔法", summary: "同じ数字のカードを墓場から回収", detail: "このカードを墓場へ送り、同じ数字のカードを墓場から1枚選んで手札へ戻します。", tip: "モラトリアムなど強い効果を再利用すると手数を伸ばせる。", visual: "revive" },
+  { id: "truth", short: "真実", name: "真実の魔法", summary: "現在の伏せ魔法を公開", detail: "このカードを墓場へ送り、その時点で場に伏せられている魔法を公開します。あとから置かれた伏せ札は再び隠れたままです。", tip: "終盤の読み合いや、危険な伏せ札の確認に有効。", visual: "truth" },
+];
+
+function MagicGuide() {
+  const [selected, setSelected] = useState<MagicGuideEntry["id"]>("destroy");
+  const magic = MAGIC_GUIDE.find((item) => item.id === selected) ?? MAGIC_GUIDE[0];
+
+  const selectMagic = (id: MagicGuideEntry["id"]) => {
+    setSelected(id);
+    playGameSfx(id === "truth" ? "reveal" : id === "betray" ? "mystery" : "magic");
+  };
+
+  return (
+    <Box animation="sm-in .34s ease both">
+      <Text mb="3" fontSize="11px" letterSpacing=".24em" color="#9C855D">CARD MAGIC GUIDE — カードをタップ</Text>
+      <SimpleGrid columns={{ base: 2, sm: 4, md: 7 }} gap="2" mb="5">
+        {MAGIC_GUIDE.map((item) => (
+          <Button
+            key={item.id}
+            size="sm"
+            h="46px"
+            whiteSpace="normal"
+            lineHeight="1.15"
+            fontSize="11px"
+            bg={selected === item.id ? "linear-gradient(180deg,#4B3517,#171008)" : "rgba(8,9,12,.76)"}
+            color={selected === item.id ? "#FFE7A7" : "#BDB4A3"}
+            border="1px solid"
+            borderColor={selected === item.id ? "#C99E4C" : "rgba(215,181,109,.24)"}
+            onClick={() => selectMagic(item.id)}
+          >
+            {item.short}
+          </Button>
+        ))}
+      </SimpleGrid>
+
+      <Box key={selected} border="1px solid rgba(215,181,109,.28)" borderRadius="12px" bg="rgba(3,4,6,.7)" overflow="hidden" animation="sm-in .28s ease both">
+        <Box minH={{ base: "230px", md: "280px" }} display="flex" alignItems="center" justifyContent="center" bg="radial-gradient(circle at 50% 45%, rgba(215,181,109,.12), transparent 45%)">
+          <MagicEffectVisual kind={magic.visual} />
+        </Box>
+        <VStack align="start" gap="2" p={{ base: "4", md: "5" }}>
+          <HStack justify="space-between" w="full" align="baseline" flexWrap="wrap">
+            <Heading fontSize={{ base: "xl", md: "2xl" }} color="#F3E5BF" fontWeight="500">{magic.name}</Heading>
+            <Text fontSize="sm" color="#D7B56D">{magic.summary}</Text>
+          </HStack>
+          <Text color="#C4BAA7" lineHeight="1.8" fontSize="sm">{magic.detail}</Text>
+          <Box mt="1" w="full" borderLeft="2px solid #9E7A3C" pl="3">
+            <Text color="#9F927D" fontSize="12px"><Box as="span" color="#D7B56D">使い方：</Box>{magic.tip}</Text>
+          </Box>
+        </VStack>
+      </Box>
+    </Box>
+  );
+}
+
+function MagicEffectVisual({ kind }: { kind: MagicGuideEntry["visual"] }) {
+  if (kind === "destroy") return (
+    <HStack gap="5"><MiniCard label="7" magic="POINT" gold /><Text fontSize="4xl" color="#D7B56D" style={{ animation: "sm-glow 1s ease infinite" }}>✦</Text><Box style={{ animation: "sm-destroy 1.8s ease-in-out infinite" }}><MiniCard label="×2" magic="増大" /></Box></HStack>
+  );
+  if (kind === "guard") return (
+    <Box position="relative"><MiniCard label="7" magic="POINT" gold /><Box position="absolute" inset="-24px" border="2px solid rgba(104,184,255,.72)" borderRadius="999px" style={{ animation: "sm-shield 1.7s ease-in-out infinite" }} /><Text position="absolute" top="49px" left="118px" color="#9ED8FF" fontSize="2xl">＋1</Text></Box>
+  );
+  if (kind === "double") return (
+    <HStack gap="5"><MiniCard label="4" magic="POINT" gold /><Text fontSize="3xl" color="#D7B56D">×2</Text><Text fontSize="4xl" color="#FFE39A" fontWeight="700" style={{ animation: "sm-pop 1.5s ease-in-out infinite" }}>8 pt</Text></HStack>
+  );
+  if (kind === "betray") return (
+    <VStack gap="3"><HStack gap="3"><MiniCard label="6" magic="POINT" gold /><BackCard /><BackCard /></HStack><Text color="#E6C879" fontSize="sm">−6 → 裏切りをもう1枚 → ＋6</Text></VStack>
+  );
+  if (kind === "moratorium") return (
+    <HStack gap="5"><Box style={{ animation: "sm-discard 1.8s ease-in-out infinite" }}><MiniCard label="2" magic="モラトリアム" /></Box><Text color="#D7B56D" fontSize="3xl">→</Text><Box style={{ animation: "sm-draw 1.8s ease-in-out infinite" }}><BackCard /></Box></HStack>
+  );
+  if (kind === "revive") return (
+    <VStack gap="2"><Text color="#7E7464" fontSize="xs">GRAVEYARD</Text><Box style={{ animation: "sm-revive 1.8s ease-in-out infinite" }}><MiniCard label="3" magic="モラトリアム" gold /></Box><Text color="#D7B56D" fontSize="sm">同じ数字を手札へ</Text></VStack>
+  );
+  return (
+    <HStack gap="5"><Box style={{ perspective: "800px" }}><Box position="relative" w="98px" h="142px" transformStyle="preserve-3d" style={{ animation: "sm-flip 2s ease-in-out infinite" }}><Box position="absolute" inset="0" backfaceVisibility="hidden"><BackCard /></Box><Box position="absolute" inset="0" transform="rotateY(180deg)" backfaceVisibility="hidden"><MiniCard label="×−1" magic="裏切り" /></Box></Box></Box><Text color="#D7B56D" fontSize="sm">伏せ札の正体を見抜く</Text></HStack>
+  );
+}
+
 
 function TutorialVisual({ kind }: { kind: typeof STEPS[number]["visual"] }) {
   if (kind === "draft") {
