@@ -198,8 +198,9 @@ export default function GameScreen({
             hidden={finalHidden}
             actionKind={game.lastActionKind}
             targetCard={game.lastActionTargetCard}
+            targetEffects={game.lastActionTargetEffects ?? []}
             label="FINAL ACTION"
-            autoContinueMs={1700}
+            autoContinueMs={Math.max(1700, 1250 + (game.lastActionTargetEffects?.length ?? 0) * 960)}
             showContinueButton={false}
             onContinue={() => setResultRevealReady(true)}
           />
@@ -614,6 +615,7 @@ export default function GameScreen({
           hidden={showCpuActionPanel ? game.lastActionCardHidden : false}
           actionKind={game.lastActionKind}
           targetCard={game.lastActionTargetCard}
+            targetEffects={game.lastActionTargetEffects ?? []}
           label={showCpuActionPanel ? "CPU ACTION" : "PLAYER ACTION"}
           onContinue={() => {
             const shouldShowDraw =

@@ -255,7 +255,7 @@ function MagicGuide() {
 }
 
 function MagicEffectVisual({ kind }: { kind: MagicGuideEntry["visual"] }) {
-  const targetCard = CARD_SAMPLES.guard6;
+  const defaultTargetCard = CARD_SAMPLES.guard6;
   const sourceMap: Record<MagicGuideEntry["visual"], Card> = {
     destroy: CARD_SAMPLES.destroy2,
     guard: CARD_SAMPLES.guard2,
@@ -267,7 +267,20 @@ function MagicEffectVisual({ kind }: { kind: MagicGuideEntry["visual"] }) {
   };
 
   const actionKind = kind === "guard" || kind === "double" || kind === "betray" ? "stack" : kind;
-  const actionTarget = kind === "moratorium" ? null : kind === "revive" ? CARD_SAMPLES.moratorium3 : targetCard;
+  const actionTarget = kind === "moratorium"
+    ? null
+    : kind === "revive"
+      ? CARD_SAMPLES.moratorium3
+      : kind === "guard"
+        ? CARD_SAMPLES.betray1
+        : defaultTargetCard;
+  const tutorialTargetEffects = kind === "truth"
+    ? [
+        { card: CARD_SAMPLES.guard2, wasFaceUp: false, outcome: "revealed" as const },
+        { card: CARD_SAMPLES.double3, wasFaceUp: false, outcome: "revealed" as const },
+        { card: CARD_SAMPLES.betray4, wasFaceUp: false, outcome: "revealed" as const },
+      ]
+    : [];
 
   return (
     <VStack gap="3" w="full" px={{ base: "2", md: "4" }}>
@@ -276,16 +289,9 @@ function MagicEffectVisual({ kind }: { kind: MagicGuideEntry["visual"] }) {
         hidden={false}
         actionKind={actionKind}
         targetCard={actionTarget}
+        targetEffects={tutorialTargetEffects}
+        animationVariant={kind === "guard" ? "guard-tutorial-sequence" : null}
       />
-      <Text color="#D7B56D" fontSize="sm" textAlign="center" maxW="680px">
-        {kind === "destroy" && "破壊は対象の場へ衝撃が入り、上に重なったカードから順に処理されます。"}
-        {kind === "guard" && "守護は伏せて重ね、破壊を受けると守護自身が壊れて下のカードを守ります。"}
-        {kind === "double" && "増大は伏せて重ね、最終集計でその場所の得点を2倍にします。"}
-        {kind === "betray" && "裏切りは伏せて重ね、最終集計でその場所の得点の符号を反転させます。"}
-        {kind === "moratorium" && "モラトリアムは使用カードが光に包まれて消え、その後に山札から1枚引きます。"}
-        {kind === "revive" && "復活は同じ数字のカードを墓場から選び、手札へ戻します。"}
-        {kind === "truth" && "真実は使用した時点で伏せられている魔法を公開します。"}
-      </Text>
     </VStack>
   );
 }
@@ -301,7 +307,7 @@ function TutorialVisual({ kind }: { kind: typeof STEPS[number]["visual"] }) {
     return <HStack gap={{ base: "3", md: "6" }}><TutorialCard card={CARD_SAMPLES.destroy2} style={{ animation: "sm-float 2.2s ease-in-out infinite" }} /><Text fontSize="3xl" color="#D7B56D">✦</Text><TutorialCard card={CARD_SAMPLES.moratorium1} style={{ animation: "sm-glow 1.6s ease-in-out infinite" }} /></HStack>;
   }
   if (kind === "bluff") {
-    return <Box w="240px" h="190px" position="relative"><Box position="absolute" left="76px" top="42px"><TutorialCard card={CARD_SAMPLES.guard6} /></Box><Box position="absolute" left="89px" top="33px" style={{ animation: "sm-stack1 .7s .12s ease both" }}><TutorialBackCard small /></Box><Box position="absolute" left="101px" top="24px" style={{ animation: "sm-stack2 .8s .42s ease both" }}><TutorialBackCard small /></Box><Text position="absolute" bottom="5px" w="full" textAlign="center" color="#BFAE8C" fontSize="sm">裏切り × 裏切り ＝ 正に戻る</Text></Box>;
+    return <Box w="240px" h="190px" position="relative"><Box position="absolute" left="76px" top="42px"><TutorialCard card={CARD_SAMPLES.guard6} /></Box><Box position="absolute" left="89px" top="33px" style={{ animation: "sm-stack1 .7s .12s ease both" }}><TutorialBackCard small /></Box><Box position="absolute" left="101px" top="24px" style={{ animation: "sm-stack2 .8s .42s ease both" }}><TutorialBackCard small /></Box></Box>;
   }
   return <HStack gap="5"><Box style={{ perspective: "800px" }}><Box position="relative" w="98px" h="142px" transformStyle="preserve-3d" style={{ animation: "sm-flip 2.2s ease-in-out infinite" }}><Box position="absolute" inset="0" backfaceVisibility="hidden"><TutorialBackCard /></Box><Box position="absolute" inset="0" transform="rotateY(180deg)" backfaceVisibility="hidden"><TutorialCard card={CARD_SAMPLES.betray4} /></Box></Box></Box><Text fontSize="3xl" color="#D7B56D">→</Text><VStack gap="0"><Text color="#AFA594" fontSize="sm">FINAL SCORE</Text><Text color="#F3D48A" fontSize="4xl" fontWeight="700">24 pt</Text></VStack></HStack>;
 }

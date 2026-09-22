@@ -43,6 +43,14 @@ export type Player = {
 
 export type Phase = "setup" | "draft" | "playing" | "result";
 export type LastActionKind = "draft" | "summon" | "stack" | "destroy" | "moratorium" | "revive" | "truth" | null;
+
+export type LastActionEffectSnapshot = {
+  card: Card;
+  /** その行動が始まる直前から表向きだったか */
+  wasFaceUp: boolean;
+  /** 演出でどう扱うか */
+  outcome: "destroyed" | "guarded" | "revealed";
+};
 export type GameState = {
   phase: Phase;
   players: Player[];
@@ -63,6 +71,8 @@ export type GameState = {
   lastActionKind: LastActionKind;
   /** 演出用の公開可能な対象カード。伏せ札の正体は絶対に入れない。 */
   lastActionTargetCard: Card | null;
+  /** 真実・破壊の連続演出に使う、公開可能になった効果カードの情報。 */
+  lastActionTargetEffects: LastActionEffectSnapshot[];
   /** 直前のモラトリアムで引いたカード。公開UIには直接出さず、本人向け通知に使う。 */
   lastDrawnCard: Card | null;
 };

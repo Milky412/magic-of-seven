@@ -1,4 +1,4 @@
-import type { Card, GameState, LastActionKind, TurnOrderPreference } from "@/game/types";
+import type { Card, GameState, LastActionEffectSnapshot, LastActionKind, TurnOrderPreference } from "@/game/types";
 
 export type OnlineRoomStatus = "waiting" | "playing" | "finished";
 
@@ -76,6 +76,7 @@ export type PublicGameSnapshot = {
   lastActionCardHidden: boolean;
   lastActionKind: LastActionKind;
   lastActionTargetCard: Card | null;
+  lastActionTargetEffects: LastActionEffectSnapshot[];
   resultGameState: GameState | null;
   syncDebug?: OnlineSyncDebugSnapshot | null;
 };

@@ -101,11 +101,11 @@ function normalizeName(name: string) {
 }
 
 export function normalizeRoomCode(value: string) {
-  return value.toUpperCase().replace(/[^A-Z2-9]/g, "").slice(0, 6);
+  return value.toUpperCase().replace(/[^A-Z2-9]/g, "").slice(0, 3);
 }
 
 function randomRoomCode() {
-  return Array.from({ length: 6 }, () =>
+  return Array.from({ length: 3 }, () =>
     CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]
   ).join("");
 }
@@ -164,7 +164,7 @@ export async function joinOnlineRoom(
   const { db } = requireFirebase();
   const uid = await ensureAnonymousUser();
   const code = normalizeRoomCode(rawCode);
-  if (code.length !== 6) throw new Error("6文字の合言葉を入力してください。");
+  if (code.length !== 3) throw new Error("3文字の合言葉を入力してください。");
 
   const roomRef = doc(db, "rooms", code);
   const roomSnap = await getDoc(roomRef);
@@ -967,6 +967,7 @@ function createPublicSnapshot(
   let lastActionCardHidden = game.lastActionCardHidden;
   let lastActionKind = game.lastActionKind ?? null;
   let lastActionTargetCard = game.lastActionTargetCard ?? null;
+  let lastActionTargetEffects = game.lastActionTargetEffects ?? [];
 
   // オンラインでは人間同士でも、伏せて重ねたカードの種類を公開しない。
   if (actionType === "stackEffect" && game.lastActionActorId) {
@@ -976,6 +977,7 @@ function createPublicSnapshot(
     lastActionCardHidden = true;
     lastActionKind = "stack";
     lastActionTargetCard = game.lastActionTargetCard ?? null;
+    lastActionTargetEffects = [];
   }
 
   return {
@@ -1011,6 +1013,7 @@ function createPublicSnapshot(
     lastActionCardHidden,
     lastActionKind,
     lastActionTargetCard,
+    lastActionTargetEffects,
     syncDebug,
     resultGameStateJson: game.phase === "result" ? JSON.stringify(game) : null,
   };

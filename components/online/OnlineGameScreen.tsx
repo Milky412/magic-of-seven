@@ -513,8 +513,9 @@ export default function OnlineGameScreen({
             hidden={publicGame.lastActionCardHidden}
             actionKind={publicGame.lastActionKind}
             targetCard={publicGame.lastActionTargetCard}
+            targetEffects={publicGame.lastActionTargetEffects ?? []}
             label="FINAL ACTION"
-            autoContinueMs={1700}
+            autoContinueMs={Math.max(1700, 1250 + (publicGame.lastActionTargetEffects?.length ?? 0) * 960)}
             showContinueButton={false}
             onContinue={() => setResultRevealReady(true)}
           />
@@ -805,6 +806,7 @@ export default function OnlineGameScreen({
           }
           actionKind={publicGame.lastActionKind}
           targetCard={publicGame.lastActionTargetCard}
+            targetEffects={publicGame.lastActionTargetEffects ?? []}
           label="YOUR ACTION"
           onContinue={() => {
             setShowSelfActionAnimation(false);
@@ -828,6 +830,7 @@ export default function OnlineGameScreen({
           hidden={playPublicGame.lastActionCardHidden}
           actionKind={playPublicGame.lastActionKind}
           targetCard={playPublicGame.lastActionTargetCard}
+          targetEffects={playPublicGame.lastActionTargetEffects ?? []}
           label="PLAYER ACTION"
           onContinue={() => setAwaitingOpponentContinue(false)}
         />

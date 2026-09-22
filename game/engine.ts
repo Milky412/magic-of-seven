@@ -6,7 +6,7 @@ export function createInitialState(): GameState {
   return {
     phase: "setup", players: [], deck: [], graveyard: [], turnOrder: [], currentTurn: 0,
     draftPacks: [], draftSelections: [], draftRound: 0, draftPlayerIndex: 0, winnerIds: [],
-    lastAction: "", lastActionCard: null, lastActionActorId: null, lastActionCardHidden: false, lastActionKind: null, lastActionTargetCard: null, lastDrawnCard: null,
+    lastAction: "", lastActionCard: null, lastActionActorId: null, lastActionCardHidden: false, lastActionKind: null, lastActionTargetCard: null, lastActionTargetEffects: [], lastDrawnCard: null,
   };
 }
 
@@ -35,12 +35,13 @@ export function startGame(setups: PlayerSetup[], turnOrderPreference: TurnOrderP
   return {
     phase: "draft", players, deck, graveyard: [], turnOrder, currentTurn: 0,
     draftPacks: packs, draftSelections: players.map(() => []), draftRound: 0, draftPlayerIndex: 0, winnerIds: [],
-    lastAction: "ドラフトを開始しました。", lastActionCard: null, lastActionActorId: null, lastActionCardHidden: false, lastActionKind: "draft", lastActionTargetCard: null, lastDrawnCard: null,
+    lastAction: "ドラフトを開始しました。", lastActionCard: null, lastActionActorId: null, lastActionCardHidden: false, lastActionKind: "draft", lastActionTargetCard: null, lastActionTargetEffects: [], lastDrawnCard: null,
   };
 }
 
 export function draftPick(state: GameState, cardId: string): GameState {
   const s = structuredClone(state);
+  s.lastActionTargetEffects = [];
   const p = s.draftPlayerIndex;
   const pack = s.draftPacks[p];
   const index = pack.findIndex((c) => c.id === cardId);
@@ -69,6 +70,7 @@ export function draftPick(state: GameState, cardId: string): GameState {
 export function placeAsPoint(state: GameState, playerId: string, cardId: string): GameState {
   const s = structuredClone(state);
   s.lastDrawnCard = null;
+  s.lastActionTargetEffects = [];
   const player = s.players.find((p) => p.id === playerId)!;
   const idx = player.hand.findIndex((c) => c.id === cardId);
   if (idx < 0) return state;
@@ -83,6 +85,7 @@ export function placeAsPoint(state: GameState, playerId: string, cardId: string)
 export function stackEffect(state: GameState, playerId: string, cardId: string, targetStackId: string): GameState {
   const s = structuredClone(state);
   s.lastDrawnCard = null;
+  s.lastActionTargetEffects = [];
   const player = s.players.find((p) => p.id === playerId)!;
   const idx = player.hand.findIndex((c) => c.id === cardId);
   if (idx < 0) return state;
@@ -106,31 +109,45 @@ export function stackEffect(state: GameState, playerId: string, cardId: string, 
 export function useDestroy(state: GameState, playerId: string, cardId: string, targetStackId: string): GameState {
   const s = structuredClone(state);
   s.lastDrawnCard = null;
+  s.lastActionTargetEffects = [];
   const source = removeHandCard(s, playerId, cardId); if (!source) return state;
   s.graveyard.push(source);
   const sourcePlayer = s.players.find((p) => p.id === playerId)!;
   const target = findStackWithOwner(s, targetStackId); if (!target) return state;
   const { owner, stack } = target;
   const publicTargetCard = stack.baseCard;
+  const affected: GameState["lastActionTargetEffects"] = [];
+
   while (stack.effects.length) {
-    const top = stack.effects.pop()!; s.graveyard.push(top.card);
-    if (top.card.magic === "guard") {
+    const top = stack.effects.pop()!;
+    const isGuard = top.card.magic === "guard";
+    affected.push({
+      card: top.card,
+      wasFaceUp: top.isFaceUp,
+      outcome: isGuard ? "guarded" : "destroyed",
+    });
+    s.graveyard.push(top.card);
+    if (isGuard) {
       s.lastAction = `${sourcePlayer.name}は${describeCard(source)}で破壊を試みましたが、守護の魔法に止められました。`;
       s.lastActionCard = source; s.lastActionActorId = sourcePlayer.id; s.lastActionCardHidden = false;
       s.lastActionKind = "destroy"; s.lastActionTargetCard = publicTargetCard;
+      s.lastActionTargetEffects = affected;
       return endTurn(s);
     }
   }
+
   s.graveyard.push(stack.baseCard); owner.field = owner.field.filter((x) => x.id !== stack.id);
   s.lastAction = `${sourcePlayer.name}は${describeCard(source)}で${owner.name}の場のカードを破壊しました。`;
   s.lastActionCard = source; s.lastActionActorId = sourcePlayer.id; s.lastActionCardHidden = false;
   s.lastActionKind = "destroy"; s.lastActionTargetCard = publicTargetCard;
+  s.lastActionTargetEffects = affected;
   return endTurn(s);
 }
 
 export function useMoratorium(state: GameState, playerId: string, cardId: string): GameState {
   const s = structuredClone(state);
   s.lastDrawnCard = null;
+  s.lastActionTargetEffects = [];
   const source = removeHandCard(s, playerId, cardId); if (!source) return state;
   s.graveyard.push(source);
   const drawn = s.deck.pop();
@@ -146,6 +163,7 @@ export function useMoratorium(state: GameState, playerId: string, cardId: string
 export function useRevive(state: GameState, playerId: string, cardId: string, targetCardId: string): GameState {
   const s = structuredClone(state);
   s.lastDrawnCard = null;
+  s.lastActionTargetEffects = [];
   const source = removeHandCard(s, playerId, cardId); if (!source) return state;
   s.graveyard.push(source);
   const idx = s.graveyard.findIndex((c) => c.id === targetCardId && c.number === source.number && c.id !== source.id);
@@ -161,11 +179,17 @@ export function useRevive(state: GameState, playerId: string, cardId: string, ta
 export function useTruth(state: GameState, playerId: string, cardId: string, targetStackId: string): GameState {
   const s = structuredClone(state);
   s.lastDrawnCard = null;
+  s.lastActionTargetEffects = [];
   const source = removeHandCard(s, playerId, cardId); if (!source) return state;
   s.graveyard.push(source);
   const target = findStack(s, targetStackId);
   const publicTargetCard = target?.baseCard ?? null;
   if (target) {
+    // すでに表向きのカードは演出対象にせず、今回新たに公開される伏せ札だけ記録する。
+    s.lastActionTargetEffects = target.effects
+      .filter((effect) => !effect.isFaceUp)
+      .map((effect) => ({ card: effect.card, wasFaceUp: false, outcome: "revealed" as const }));
+
     // 発動時点で存在する効果カードだけを公開する。
     // 以後stackEffectで追加されるカードは revealedByTruth:false / isFaceUp:false なので公開されない。
     const existingIds = new Set(target.effects.map((e) => e.card.id));

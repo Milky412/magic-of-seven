@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { Box, Button, Heading, Text, VStack } from "@chakra-ui/react";
 import CardActionAnimation from "@/components/CardActionAnimation";
 import { playGameSfx } from "@/components/BgmController";
-import type { Card, LastActionKind } from "@/game/types";
+import type { Card, LastActionEffectSnapshot, LastActionKind } from "@/game/types";
 
 const HIDDEN_CARD: Card = { id: "action-hidden", number: 1, magic: "truth" };
 
@@ -20,6 +20,7 @@ export default function ActionOverlay({
   continueLabel = "次へ",
   actionKind,
   targetCard = null,
+  targetEffects = [],
 }: {
   actorName: string;
   action: string;
@@ -32,7 +33,10 @@ export default function ActionOverlay({
   continueLabel?: string;
   actionKind?: LastActionKind;
   targetCard?: Card | null;
+  targetEffects?: LastActionEffectSnapshot[];
 }) {
+  const isWideLayout = (actionKind === "truth" && targetEffects.length > 1) || (actionKind === "destroy" && targetEffects.length > 0);
+
   useEffect(() => {
     if (actionKind === "summon" || actionKind === "draft") {
       playGameSfx("card");
@@ -62,8 +66,8 @@ export default function ActionOverlay({
       overflow="hidden"
     >
       <Box
-        w={{ base: "100%", md: "720px" }}
-        maxW="720px"
+        w={isWideLayout ? { base: "100%", md: "860px" } : { base: "100%", md: "720px" }}
+        maxW={isWideLayout ? "860px" : "720px"}
         maxH="calc(100dvh - 16px)"
         bg="linear-gradient(180deg, rgba(23,19,13,.99), rgba(6,7,9,.99))"
         border="1px solid rgba(215,181,109,.58)"
@@ -104,6 +108,8 @@ export default function ActionOverlay({
                   hidden={hidden}
                   actionKind={actionKind}
                   targetCard={targetCard}
+                  targetEffects={targetEffects}
+                  actionText={action}
                 />
               </Box>
             )}

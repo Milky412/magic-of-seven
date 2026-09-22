@@ -216,7 +216,7 @@ export default function BgmController() {
       void startBgm();
       void ensureAudioContext();
     };
-    const delegatedPointer = (event: PointerEvent) => {
+    const delegatedClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
       const sfxTarget = target.closest<HTMLElement>("[data-sfx]");
@@ -230,11 +230,11 @@ export default function BgmController() {
     };
 
     window.addEventListener("pointerdown", firstGesture, { once: true });
-    document.addEventListener("pointerdown", delegatedPointer, true);
+    document.addEventListener("click", delegatedClick, true);
     window.addEventListener("seven-magic-sfx", customSfx as EventListener);
     return () => {
       window.removeEventListener("pointerdown", firstGesture);
-      document.removeEventListener("pointerdown", delegatedPointer, true);
+      document.removeEventListener("click", delegatedClick, true);
       window.removeEventListener("seven-magic-sfx", customSfx as EventListener);
     };
   }, [ready, seEnabled, bgmEnabled, bgmVolume, seVolume]);

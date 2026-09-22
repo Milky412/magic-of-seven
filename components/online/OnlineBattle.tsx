@@ -156,7 +156,7 @@ export default function OnlineBattle({ onExit }: { onExit: () => void }) {
         <Box w="full" p="6" textAlign="center" bg="rgba(0,0,0,.30)" border="1px solid rgba(215,181,109,.35)" borderRadius="8px">
           <Text color="#9E917B" fontSize="md" letterSpacing=".22em">合言葉</Text>
           <Text mt="2" fontSize={{ base: "4xl", md: "6xl" }} letterSpacing=".18em" color="#F0D58E" fontWeight="600">{session.roomCode}</Text>
-          <Text mt="3" color="#AFA594" fontSize={{ base: "md", md: "lg" }}>この6文字を対戦相手に伝えてください</Text>
+          <Text mt="3" color="#AFA594" fontSize={{ base: "md", md: "lg" }}>この3文字を対戦相手に伝えてください</Text>
         </Box>
         <VStack w="full" align="stretch" gap="2">
           {Array.from({ length: needed }).map((_, index) => {
@@ -250,10 +250,10 @@ export default function OnlineBattle({ onExit }: { onExit: () => void }) {
           {mode === "join" && (
             <Box>
               <Text mb="2" color="#B89758" fontSize="md" letterSpacing=".16em">ROOM CODE</Text>
-              <Input value={code} maxLength={6} textTransform="uppercase" letterSpacing=".18em" fontSize="xl" onChange={(e) => setCode(normalizeRoomCode(e.target.value))} bg="rgba(255,255,255,.035)" borderColor="rgba(215,181,109,.34)" color="#F5EFE2" placeholder="ABC123" />
+              <Input value={code} maxLength={3} textTransform="uppercase" letterSpacing=".18em" fontSize="xl" onChange={(e) => setCode(normalizeRoomCode(e.target.value))} bg="rgba(255,255,255,.035)" borderColor="rgba(215,181,109,.34)" color="#F5EFE2" placeholder="ABC" />
             </Box>
           )}
-          <Button {...goldButtonProps} size="lg" disabled={busy || (mode === "join" && code.length !== 6)} onClick={async () => {
+          <Button {...goldButtonProps} size="lg" disabled={busy || (mode === "join" && code.length !== 3)} onClick={async () => {
             setBusy(true); setError("");
             try {
               const next = mode === "create" ? await createOnlineRoom(name, maxPlayers, turnOrderPreference) : await joinOnlineRoom(code, name);
