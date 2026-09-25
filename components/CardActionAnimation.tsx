@@ -384,7 +384,7 @@ function DestroyStackSequence({ card, targetCard, targetEffects }: {
     </Box>
 
     {targetEffects.map((effect, previewIndex) => {
-      const offset = previewIndex * 18;
+      const offset = previewIndex * 7;
       const left = `calc(${stackLeft} + ${offset}px)`;
       const previewDelay = Math.max(0, firstDelay - 0.22 + previewIndex * 0.03);
       const consumeDelay = firstDelay + previewIndex * step;
@@ -396,7 +396,7 @@ function DestroyStackSequence({ card, targetCard, targetEffects }: {
           top="50%"
           style={{ translate: "-50% -50%", animation: `v48-card-slot .18s ${previewDelay}s ease-out both` } as CSSProperties}
           zIndex={60 - previewIndex}
-          opacity={0.78 - previewIndex * 0.1}
+          opacity={Math.max(0.72, 0.96 - previewIndex * 0.05)}
           pointerEvents="none"
         >
           <Box animation={`v68-preview-hide .08s ${consumeDelay}s linear forwards`}>
