@@ -41,10 +41,12 @@ export default function GameScreen({
   game,
   setGame,
   onRestart,
+  localMultiplayer = false,
 }: {
   game: GameState;
   setGame: (g: GameState) => void;
   onRestart: () => void;
+  localMultiplayer?: boolean;
 }) {
   const [selected, setSelected] = useState<Card | null>(null);
   const [mode, setMode] = useState<
@@ -59,6 +61,7 @@ export default function GameScreen({
   const [drawnCardNotice, setDrawnCardNotice] = useState<Card | null>(null);
   const [pendingDrawnCardNotice, setPendingDrawnCardNotice] = useState<Card | null>(null);
   const [resultRevealReady, setResultRevealReady] = useState(false);
+  const [localReadyKey, setLocalReadyKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (game.phase !== "playing") {
@@ -111,6 +114,17 @@ export default function GameScreen({
     const p = game.draftPlayerIndex;
     const player = game.players[p];
     const isCpu = player.kind === "cpu";
+    const draftHandoffKey = `draft:${game.draftRound}:${p}:${player.id}`;
+
+    if (localMultiplayer && !isCpu && localReadyKey !== draftHandoffKey) {
+      return (
+        <LocalHandoffScreen
+          playerName={player.name}
+          phase="draft"
+          onReady={() => setLocalReadyKey(draftHandoffKey)}
+        />
+      );
+    }
 
     return (
       <Shell>
@@ -237,6 +251,24 @@ export default function GameScreen({
     awaitingLocalContinue &&
     lastActor?.kind === "human";
   const showActionPanel = showCpuActionPanel || showLocalActionPanel;
+  const localTurnKey = `play:${current.id}:${game.lastActionActorId ?? "start"}:${game.lastActionCard?.id ?? "none"}:${game.lastAction}`;
+  const localTurnReady = !localMultiplayer || localReadyKey === localTurnKey;
+
+  if (
+    localMultiplayer &&
+    !isCpuTurn &&
+    !showActionPanel &&
+    !drawnCardNotice &&
+    !localTurnReady
+  ) {
+    return (
+      <LocalHandoffScreen
+        playerName={current.name}
+        phase="turn"
+        onReady={() => setLocalReadyKey(localTurnKey)}
+      />
+    );
+  }
 
   const commitHumanAction = (rawNext: GameState) => {
     const next = annotateNewEffectOwner(game, rawNext);
@@ -472,10 +504,11 @@ export default function GameScreen({
               <MagicCard
                 key={c.id}
                 card={c}
+                hidden={localMultiplayer && !localTurnReady}
                 selected={
-                  selected?.id === c.id
+                  localTurnReady && selected?.id === c.id
                 }
-                onClick={() => chooseCard(c)}
+                onClick={localTurnReady ? () => chooseCard(c) : undefined}
               />
             ))}
           </HStack>
@@ -670,6 +703,88 @@ function annotateNewEffectOwner(before: GameState, after: GameState): GameState 
     }
   }
   return next;
+}
+
+function LocalHandoffScreen({
+  playerName,
+  phase,
+  onReady,
+}: {
+  playerName: string;
+  phase: "draft" | "turn";
+  onReady: () => void;
+}) {
+  return (
+    <Shell>
+      <Box
+        minH="72vh"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <VStack
+          w="full"
+          maxW="620px"
+          gap="6"
+          textAlign="center"
+          p={{ base: "7", md: "10" }}
+          bg="linear-gradient(180deg, rgba(22,18,12,.98), rgba(6,7,9,.99))"
+          border="1px solid rgba(215,181,109,.55)"
+          borderRadius="12px"
+          boxShadow="0 24px 80px rgba(0,0,0,.58), inset 0 0 36px rgba(0,0,0,.52)"
+        >
+          <Text fontSize="12px" letterSpacing="0.34em" color="#B89758">
+            LOCAL PASS & PLAY
+          </Text>
+          <Box
+            w={{ base: "78px", md: "92px" }}
+            h={{ base: "78px", md: "92px" }}
+            borderRadius="999px"
+            border="1px solid rgba(215,181,109,.55)"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            fontSize={{ base: "3xl", md: "4xl" }}
+            color="#F3E5BF"
+            boxShadow="0 0 32px rgba(215,181,109,.12)"
+          >
+            ◇
+          </Box>
+          <VStack gap="2">
+            <Heading
+              fontSize={{ base: "2xl", md: "3xl" }}
+              fontWeight="500"
+              color="#F3E5BF"
+            >
+              {phase === "draft" ? `${playerName} のドラフトです` : `${playerName} のターンです`}
+            </Heading>
+            <Text color="#D1C5B1" fontSize={{ base: "md", md: "lg" }}>
+              {playerName} に端末を渡してください。
+            </Text>
+            <Text color="#8F8779" fontSize="sm">
+              前のプレイヤーは、次の人がボタンを押すまで画面を見ないようにしてください。
+            </Text>
+          </VStack>
+          <Button
+            w="full"
+            maxW="360px"
+            h="52px"
+            bg="linear-gradient(180deg, #392A16, #171008)"
+            color="#F3E3B9"
+            border="1px solid #9E7A3C"
+            borderRadius="7px"
+            _hover={{ borderColor: "#D7B56D", boxShadow: "0 0 18px rgba(215,181,109,.22)" }}
+            onClick={onReady}
+          >
+            {playerName} として続ける
+          </Button>
+          <Text color="#6F685D" fontSize="xs" letterSpacing="0.08em">
+            この画面では手札・ドラフト候補は表示されません
+          </Text>
+        </VStack>
+      </Box>
+    </Shell>
+  );
 }
 
 function Shell({

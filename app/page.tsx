@@ -63,6 +63,7 @@ export default function Home() {
         game={game}
         setGame={setGame}
         onRestart={() => setGame(createInitialState())}
+        localMultiplayer={mode === "local"}
       />
     );
   }
